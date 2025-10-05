@@ -50,28 +50,11 @@ class DataAnalysisAgent:
         else:
             sub_queries = [query]
 
-        # 2) Retrieve relevant context (parallel over sub-queries)
-        if len(sub_queries) == 1:
-            sources = await self.retrieval_agent.retrieve(user_id=user_id, query=sub_queries[0])
-        else:
-            batches = await asyncio.gather(
-                *[self.retrieval_agent.retrieve(user_id=user_id, query=sq) for sq in sub_queries]
-            )
-            flat: List[Dict[str, Any]] = [item for batch in batches for item in batch]
-            # Deduplicate by text while preserving order; prefer higher score
-            best_by_text: Dict[str, Dict[str, Any]] = {}
-            for item in flat:
-                text_key = (item.get("text") or "").strip()
-                if not text_key:
-                    continue
-                prev = best_by_text.get(text_key)
-                if prev is None or (item.get("score") or float("-inf")) > (prev.get("score") or float("-inf")):
-                    best_by_text[text_key] = item
-            deduped = list(best_by_text.values())
-            # Sort by score desc, None last
-            deduped.sort(key=lambda x: (x.get("score") if x.get("score") is not None else float("-inf")), reverse=True)
-            limit = int(getattr(settings, "query_decomposition_context_limit", 12))
-            sources = deduped[:limit]
+        # 2) Retrieve relevant context (delegate multi-query to RetrievalAgent)
+        sources = await self.retrieval_agent.retrieve(
+            user_id=user_id,
+            query=sub_queries if len(sub_queries) > 1 else sub_queries[0],
+        )
 
         # 3) Analyze and answer
         analysis = await self.analysis_agent.analyze(question=query, contexts=sources)

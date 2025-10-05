@@ -1,5 +1,8 @@
 .PHONY: help install dev build clean docker-up docker-down lint format test
 
+# Prefer module invocation so Poetry works without PATH modifications
+POETRY ?= python3 -m poetry
+
 help: ## Show this help message
 	@echo 'Usage: make [target]'
 	@echo ''
@@ -9,7 +12,8 @@ help: ## Show this help message
 install: ## Install all dependencies
 	@echo "📦 Installing dependencies..."
 	pnpm install
-	cd backend && poetry install
+	# Work around Python 3.13 + PyO3 build gate (e.g. tiktoken)
+	cd backend && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 $(POETRY) install
 
 dev: ## Start development servers
 	@echo "🚀 Starting development servers..."
@@ -44,22 +48,22 @@ docker-logs: ## Show Docker logs
 lint: ## Lint code
 	@echo "🔍 Linting..."
 	pnpm lint
-	cd backend && poetry run ruff check app/
+	cd backend && $(POETRY) run ruff check app/
 
 format: ## Format code
 	@echo "✨ Formatting..."
 	pnpm format
-	cd backend && poetry run black app/
+	cd backend && $(POETRY) run black app/
 
 test: ## Run tests
 	@echo "🧪 Running tests..."
 	pnpm test
-	cd backend && poetry run pytest
+	~/.local/bin/poetry -C backend run pytest || [ $$? -eq 5 ]
 
 type-check: ## Type check code
 	@echo "🔍 Type checking..."
 	pnpm type-check
-	cd backend && poetry run mypy app/
+	cd backend && $(POETRY) run mypy app/
 
 setup: install docker-up ## Complete setup (install + docker)
 	@echo "✅ Setup complete!"

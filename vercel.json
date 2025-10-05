@@ -5,6 +5,5 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": "nextjs",
   "outputDirectory": "frontend/.next",
-  "rootDirectory": "frontend",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD ./frontend"
 }

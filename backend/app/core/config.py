@@ -51,4 +51,9 @@ class Settings(BaseSettings):
     reranker_top_n: int = Field(default=5, alias="RERANKER_TOP_N")
     reranker_model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2", alias="RERANKER_MODEL")
 
+    # Query decomposition
+    query_decomposition_enabled: bool = Field(default=True, alias="QUERY_DECOMPOSITION_ENABLED")
+    query_decomposition_max_sub_queries: int = Field(default=4, alias="QUERY_DECOMPOSITION_MAX_SUB_QUERIES")
+    query_decomposition_context_limit: int = Field(default=12, alias="QUERY_DECOMPOSITION_CONTEXT_LIMIT")
+
 settings = Settings()

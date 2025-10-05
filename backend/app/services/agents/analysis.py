@@ -12,7 +12,7 @@ class AnalysisAgent:
     def __init__(self, *, llm: Optional[ChatOpenAI] = None):
         self.llm = llm or ChatOpenAI(api_key=settings.openai_api_key, model="gpt-4o-mini", temperature=0.2)
 
-    async def analyze(self, *, question: str, contexts: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def analyze(self, contexts: List[Dict[str, Any]], question: str) -> Dict[str, Any]:
         context_str = "\n\n".join(f"[{i+1}] {c.get('text','')}" for i, c in enumerate(contexts))
         messages = [
             SystemMessage(content=(

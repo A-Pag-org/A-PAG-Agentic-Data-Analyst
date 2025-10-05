@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+import asyncio
 
 from .retrieval import RetrievalAgent
 from .analysis import AnalysisAgent
 from .visualization import VisualizationAgent
 from .forecasting import ForecastingAgent
+from .decomposition import DecompositionAgent
+from ...core.config import settings
 
 
 @dataclass
@@ -25,6 +28,10 @@ class DataAnalysisAgent:
         self.analysis_agent = AnalysisAgent()
         self.visualization_agent = VisualizationAgent()
         self.forecasting_agent = ForecastingAgent()
+        self.decomposition_agent = DecompositionAgent()
+
+    async def decompose_query(self, query: str) -> List[str]:
+        return await self.decomposition_agent.decompose(question=query)
 
     async def process_query(self, query: str, context: Dict[str, Any]):
         user_id: Optional[str] = (context or {}).get("user_id")
@@ -34,26 +41,52 @@ class DataAnalysisAgent:
         do_visualize: bool = bool((context or {}).get("visualize", False))
         do_forecast: bool = bool((context or {}).get("forecast", False))
 
-        # 1) Retrieve relevant context
-        sources = await self.retrieval_agent.retrieve(user_id=user_id, query=query)
+        # 1) Query decomposition (optional)
+        sub_queries: List[str]
+        if bool(getattr(settings, "query_decomposition_enabled", True)):
+            sub_queries = await self.decompose_query(query)
+            if not sub_queries:
+                sub_queries = [query]
+        else:
+            sub_queries = [query]
 
-        # 2) Analyze and answer
-        analysis = await self.analysis_agent.analyze(question=query, contexts=sources)
+        # 2) Retrieve relevant context (delegate multi-query to RetrievalAgent)
+        sources = await self.retrieval_agent.retrieve(
+            user_id=user_id,
+            query=sub_queries if len(sub_queries) > 1 else sub_queries[0],
+        )
 
-        # 3) Optional visualization
-        vis_spec: Optional[Dict[str, Any]] = None
+        # 3) Analysis phase
+        analysis = await self.analysis_agent.analyze(sources, query)
+        # Make insights payload for downstream steps
+        insights: Dict[str, Any] = {
+            "question": query,
+            **({k: v for k, v in analysis.items()} if isinstance(analysis, dict) else {"answer": str(analysis)}),
+            "sources": sources,
+        }
+
+        # 4) Visualization planning
+        viz_configs: List[Dict[str, Any]] = []
         if do_visualize:
-            vis_spec = await self.visualization_agent.maybe_visualize(question=query, contexts=sources)
+            # Prefer explicit planning based on insights; fallback to context-based suggestion
+            planned = await self.visualization_agent.plan_visualizations(insights)
+            if planned:
+                viz_configs = planned
+            else:
+                maybe = await self.visualization_agent.maybe_visualize(question=query, contexts=sources)
+                if isinstance(maybe, dict):
+                    viz_configs = [maybe]
 
-        # 4) Optional forecasting
+        # 5) Forecasting (if applicable)
         forecast_text: Optional[str] = None
         if do_forecast:
-            forecast_text = await self.forecasting_agent.maybe_forecast(question=query, contexts=sources)
+            forecast_text = await self.forecasting_agent.forecast(insights)
 
+        # Maintain backwards-compatible response while returning richer structure to API
         return AgentResponse(
             answer=analysis.get("answer", ""),
             explanation=analysis.get("explanation"),
             sources=sources,
-            visualization_spec=vis_spec,
+            visualization_spec=(viz_configs[0] if viz_configs else None),
             forecast=forecast_text,
         )

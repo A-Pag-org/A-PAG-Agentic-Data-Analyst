@@ -58,7 +58,7 @@ format: ## Format code
 test: ## Run tests
 	@echo "🧪 Running tests..."
 	pnpm test
-	~/.local/bin/poetry -C backend run pytest
+	~/.local/bin/poetry -C backend run pytest || [ $$? -eq 5 ]
 
 type-check: ## Type check code
 	@echo "🔍 Type checking..."

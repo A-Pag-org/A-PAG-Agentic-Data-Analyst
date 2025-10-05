@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional
 import asyncio
 
 from ..query_engine import build_hybrid_query_engine
@@ -28,6 +28,44 @@ class RetrievalAgent:
                 metadata = getattr(node, "metadata", {})
                 score = getattr(node, "score", None)
                 items.append({"text": text, "metadata": metadata, "score": score})
+            # Optional Cohere rerank
+            provider = (settings.reranker_provider or "local").lower()
+            if provider == "cohere" and settings.cohere_api_key and items:
+                try:
+                    import cohere  # type: ignore
+
+                    client = cohere.Client(api_key=settings.cohere_api_key)
+                    docs = [it.get("text") or "" for it in items]
+                    top_n = int(getattr(settings, "reranker_top_n", 5))
+                    rr = client.rerank(
+                        model=getattr(settings, "cohere_reranker_model", "rerank-3.5"),
+                        query=single_query,
+                        documents=docs,
+                        top_n=min(top_n, len(docs)),
+                    )
+                    # rr.results may include entries with index and relevance_score
+                    scores_by_index: Dict[int, float] = {}
+                    results = getattr(rr, "results", []) or getattr(rr, "reranked_documents", []) or []
+                    for res in results:
+                        # Cohere SDK structures may vary; try both
+                        idx = getattr(res, "index", None)
+                        if idx is None and isinstance(res, dict):
+                            idx = res.get("index")
+                        score = getattr(res, "relevance_score", None)
+                        if score is None and isinstance(res, dict):
+                            score = res.get("relevance_score")
+                        if isinstance(idx, int) and isinstance(score, (int, float)):
+                            scores_by_index[idx] = float(score)
+                    # Update items with scores and reorder
+                    for i, it in enumerate(items):
+                        if i in scores_by_index:
+                            it["score"] = scores_by_index[i]
+                    items.sort(key=lambda x: (x.get("score") if x.get("score") is not None else float("-inf")), reverse=True)
+                    # Cap to top_n after rerank
+                    items = items[:top_n]
+                except Exception:
+                    # If Cohere rerank fails, fall back to original order
+                    pass
             return items
 
         if isinstance(query, str):

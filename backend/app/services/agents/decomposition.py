@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import json
 import re
 
@@ -24,7 +24,7 @@ class DecompositionAgent:
             else int(getattr(settings, "query_decomposition_max_sub_queries", 4))
         )
 
-    async def decompose(self, *, question: str) -> List[str]:
+    async def decompose(self, *, question: str, history: Optional[List[Dict[str, Any]]] = None) -> List[str]:
         should_decompose: bool = bool(getattr(settings, "query_decomposition_enabled", True))
         if not should_decompose:
             return [question]
@@ -38,8 +38,22 @@ class DecompositionAgent:
             "Use the same language as the question. Output ONLY valid JSON as: {\"sub_queries\":[...]}"
         )
         n = max(1, min(8, self.max_subqueries))
+        history = history or []
+        # Summarize brief history context (last few turns)
+        hist_lines = []
+        for turn in history[-int(getattr(settings, "conversation_history_limit", 6)):]:
+            role = turn.get("role", "").lower()
+            content = str(turn.get("content") or turn.get("answer") or "").strip()
+            if not content:
+                continue
+            hist_lines.append(f"{role}: {content}")
+        history_block = ("\n".join(hist_lines)).strip()
+
         messages = [
-            SystemMessage(content="You are a precise query planner."),
+            SystemMessage(content=(
+                "You are a precise query planner."
+                + (f" Consider prior conversation briefly to preserve continuity:\n{history_block}" if history_block else "")
+            )),
             HumanMessage(content=f"N={n}\nQuestion: {question}\n\n{guidance}"),
         ]
         try:

@@ -12,12 +12,22 @@ class AnalysisAgent:
     def __init__(self, *, llm: Optional[ChatOpenAI] = None):
         self.llm = llm or ChatOpenAI(api_key=settings.openai_api_key, model="gpt-4o-mini", temperature=0.2)
 
-    async def analyze(self, contexts: List[Dict[str, Any]], question: str) -> Dict[str, Any]:
+    async def analyze(self, contexts: List[Dict[str, Any]], question: str, history: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         context_str = "\n\n".join(f"[{i+1}] {c.get('text','')}" for i, c in enumerate(contexts))
+        history = history or []
+        hist_lines = []
+        for turn in history[-int(getattr(settings, "conversation_history_limit", 6)):]:
+            role = turn.get("role", "").lower()
+            content = str(turn.get("content") or turn.get("answer") or "").strip()
+            if not content:
+                continue
+            hist_lines.append(f"{role}: {content}")
+        history_block = ("\n".join(hist_lines)).strip()
         messages = [
             SystemMessage(content=(
                 "You are a senior data analyst. Answer precisely using the provided context. "
                 "Cite source indices like [1], [2] when justifying. If uncertain, say so."
+                + (f"\nConversation so far (for continuity, do not restate):\n{history_block}" if history_block else "")
             )),
             HumanMessage(content=(
                 f"Question: {question}\n\nContext:\n{context_str}\n\n"

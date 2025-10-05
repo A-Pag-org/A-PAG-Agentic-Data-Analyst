@@ -17,6 +17,7 @@ class AnalyzeRequest(BaseModel):
     query: str
     visualize: bool = False
     forecast: bool = False
+    session_id: str | None = None
 
 
 @router.post("/analyze")
@@ -29,6 +30,7 @@ async def analyze(req: AnalyzeRequest):
                 "user_id": req.user_id,
                 "visualize": req.visualize,
                 "forecast": req.forecast,
+                "session_id": req.session_id,
             },
         )
         return asdict(result)

@@ -22,6 +22,14 @@ class Settings(BaseSettings):
 
     # Vector DB / Embeddings
     chroma_persist_dir: str = Field(default="chroma_index", alias="CHROMA_PERSIST_DIR")
+    # Chroma backend: "memory" (EphemeralClient) or "persistent" (PersistentClient)
+    chroma_backend: str = Field(default="memory", alias="CHROMA_BACKEND")
+    # Dataset scope for collections: "per_user" or "per_dataset"
+    chroma_dataset_scope: str = Field(default="per_user", alias="CHROMA_DATASET_SCOPE")
+    # Supabase Storage bucket for persisting collections
+    chroma_supabase_bucket: str = Field(default="chroma-collections", alias="CHROMA_SUPABASE_BUCKET")
+    # Autosave collections to Supabase after mutations and attempt auto-load on first access
+    chroma_autosave: bool = Field(default=True, alias="CHROMA_AUTOSAVE")
     embedding_model: str = Field(default="text-embedding-3-large", alias="EMBEDDING_MODEL")
 
     # Database (for LlamaIndex Postgres/pgvector)

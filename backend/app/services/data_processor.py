@@ -7,8 +7,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from fastapi import UploadFile
 from openai import OpenAI
-import chromadb
-from chromadb import PersistentClient
+from .chromadb_client import (
+    get_or_create_collection_for,
+    add_or_update_documents,
+    autosave_collection_to_supabase,
+)
 
 from .supabase_client import get_supabase_service_client
 from ..core.config import settings
@@ -24,14 +27,13 @@ from .vector_store_pg import build_or_update_vector_index
 
 class DataProcessor:
     def __init__(self, chroma_persist_dir: Optional[str] = None):
-        persist_dir = chroma_persist_dir or settings.chroma_persist_dir or "chroma_index"
-        # Ensure directory exists
-        os.makedirs(persist_dir, exist_ok=True)
-        self.chroma_client: PersistentClient = chromadb.PersistentClient(path=persist_dir)
+        # Backward-compat arg preserved; persistence is now controlled via config
+        if chroma_persist_dir:
+            os.makedirs(chroma_persist_dir, exist_ok=True)
         self.embedding_model_name: str = settings.embedding_model or "text-embedding-3-large"
         self.openai_client = OpenAI(api_key=settings.openai_api_key)
 
-    async def process_upload(self, file: UploadFile, user_id: str) -> Dict[str, Any]:
+    async def process_upload(self, file: UploadFile, user_id: str, dataset_id: Optional[str] = None) -> Dict[str, Any]:
         # 1. Parse file (CSV/Excel)
         df, file_bytes, content_type = await self.parse_file(file)
 
@@ -66,6 +68,7 @@ class DataProcessor:
         # 6. Create / update ChromaDB collection (optional legacy hybrid)
         collection_name = self.upsert_into_chroma(
             user_id=user_id,
+            dataset_id=dataset_id,
             original_data_id=original_data_id,
             texts=texts,
             metadatas=metadatas,
@@ -194,24 +197,33 @@ class DataProcessor:
     def upsert_into_chroma(
         self,
         user_id: str,
+        dataset_id: Optional[str],
         original_data_id: str,
         texts: List[str],
         metadatas: List[Dict[str, Any]],
         embeddings: List[List[float]],
     ) -> str:
-        collection_name = f"user_{user_id}"
-        collection = self.chroma_client.get_or_create_collection(name=collection_name, metadata={"user_id": user_id})
+        collection = get_or_create_collection_for(
+            user_id=user_id,
+            dataset_id=dataset_id,
+            metadata={"user_id": user_id, "dataset_id": dataset_id},
+            autoload=True,
+        )
 
         ids = [f"{original_data_id}:{i}" for i in range(len(texts))]
-        # Chroma upsert via add; duplicates will error, so we can try delete then add
-        try:
-            collection.add(ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings)
-        except Exception:
-            # Attempt overwrite by deleting and re-adding
-            try:
-                collection.delete(ids=ids)
-            except Exception:
-                pass
-            collection.add(ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings)
+        add_or_update_documents(
+            collection=collection,
+            ids=ids,
+            documents=texts,
+            metadatas=metadatas,
+            embeddings=embeddings,
+        )
 
-        return collection_name
+        # Autosave to Supabase Storage if enabled
+        try:
+            autosave_collection_to_supabase(collection_name=collection.name)
+        except Exception:
+            # Non-fatal
+            pass
+
+        return collection.name

@@ -1,0 +1,22 @@
+# General
+.DS_Store
+node_modules/
+.env
+.env.*
+*.log
+*.cache
+.cache/
+dist/
+build/
+.next/
+.vercel/
+coverage/
+.pyenv/
+.python-version
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.ipynb_checkpoints/
+chroma_index/

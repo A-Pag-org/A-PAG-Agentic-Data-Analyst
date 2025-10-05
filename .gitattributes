@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.sh linguist-language=Shell
+*.py linguist-language=Python
+*.ts linguist-language=TypeScript
+*.tsx linguist-language=TypeScript

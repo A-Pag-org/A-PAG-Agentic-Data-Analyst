@@ -14,11 +14,12 @@ Updated `vercel.json` at the root with Turborepo support:
 ```json
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm turbo run build --filter=@rag-data-analyst/frontend",
-  "devCommand": "cd frontend && pnpm dev",
-  "installCommand": "pnpm install --no-frozen-lockfile",
+  "buildCommand": "cd .. && pnpm turbo run build --filter=@rag-data-analyst/frontend",
+  "devCommand": "pnpm dev",
+  "installCommand": "pnpm install --frozen-lockfile",
   "framework": "nextjs",
-  "outputDirectory": "frontend/.next",
+  "rootDirectory": "frontend",
+  "outputDirectory": ".next",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD ./frontend"
 }
 ```

@@ -56,23 +56,37 @@ class DataAnalysisAgent:
             query=sub_queries if len(sub_queries) > 1 else sub_queries[0],
         )
 
-        # 3) Analyze and answer
-        analysis = await self.analysis_agent.analyze(question=query, contexts=sources)
+        # 3) Analysis phase
+        analysis = await self.analysis_agent.analyze(sources, query)
+        # Make insights payload for downstream steps
+        insights: Dict[str, Any] = {
+            "question": query,
+            **({k: v for k, v in analysis.items()} if isinstance(analysis, dict) else {"answer": str(analysis)}),
+            "sources": sources,
+        }
 
-        # 4) Optional visualization
-        vis_spec: Optional[Dict[str, Any]] = None
+        # 4) Visualization planning
+        viz_configs: List[Dict[str, Any]] = []
         if do_visualize:
-            vis_spec = await self.visualization_agent.maybe_visualize(question=query, contexts=sources)
+            # Prefer explicit planning based on insights; fallback to context-based suggestion
+            planned = await self.visualization_agent.plan_visualizations(insights)
+            if planned:
+                viz_configs = planned
+            else:
+                maybe = await self.visualization_agent.maybe_visualize(question=query, contexts=sources)
+                if isinstance(maybe, dict):
+                    viz_configs = [maybe]
 
-        # 5) Optional forecasting
+        # 5) Forecasting (if applicable)
         forecast_text: Optional[str] = None
         if do_forecast:
-            forecast_text = await self.forecasting_agent.maybe_forecast(question=query, contexts=sources)
+            forecast_text = await self.forecasting_agent.forecast(insights)
 
+        # Maintain backwards-compatible response while returning richer structure to API
         return AgentResponse(
             answer=analysis.get("answer", ""),
             explanation=analysis.get("explanation"),
             sources=sources,
-            visualization_spec=vis_spec,
+            visualization_spec=(viz_configs[0] if viz_configs else None),
             forecast=forecast_text,
         )

@@ -27,3 +27,29 @@ class ForecastingAgent:
         content = getattr(resp, "content", str(resp)) or ""
         text = content.strip()
         return text if text else None
+
+    async def forecast(self, insights: Dict[str, Any]) -> Optional[str]:
+        """Forecast implications given computed insights.
+
+        Returns None if insufficient basis to forecast.
+        """
+        if not insights:
+            return None
+        question = insights.get("question") or ""
+        basis = (insights.get("explanation") or insights.get("answer") or "").strip()
+        if not basis:
+            return None
+        messages = [
+            SystemMessage(content=(
+                "Provide cautious short-term forecasts using only the given insight. "
+                "Make assumptions explicit and quantify uncertainty."
+            )),
+            HumanMessage(content=(
+                f"Question: {question}\n\nInsight basis:\n{basis}\n\n"
+                "Output: 3-5 bullet points forecasting implications."
+            )),
+        ]
+        resp = await self.llm.ainvoke(messages)
+        content = getattr(resp, "content", str(resp)) or ""
+        text = content.strip()
+        return text if text else None

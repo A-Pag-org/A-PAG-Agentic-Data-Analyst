@@ -1,6 +1,0 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-# Validate commit message format (optional)
-# Enforce conventional commits format
-npx --no -- commitlint --edit ${1}

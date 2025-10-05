@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm turbo run build --filter=@rag-data-analyst/frontend",
+  "devCommand": "cd frontend && pnpm dev",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "framework": "nextjs",
+  "outputDirectory": "frontend/.next",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./frontend"
+}

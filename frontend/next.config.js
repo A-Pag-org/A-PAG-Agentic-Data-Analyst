@@ -6,9 +6,6 @@ const nextConfig = {
   images: {
     domains: ['localhost'],
   },
-  experimental: {
-    serverActions: true,
-  },
   env: {
     NEXT_PUBLIC_APP_NAME: 'RAG Data Analyst',
     NEXT_PUBLIC_APP_VERSION: '0.1.0',

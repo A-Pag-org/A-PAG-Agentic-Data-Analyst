@@ -67,7 +67,20 @@ Make sure Vercel is deploying from the correct branch:
 1. Go to **Settings** → **Git**
 2. Set **Production Branch** to: `cursor/investigate-vercel-not-found-error-cb35` (or merge this into `main` first)
 
-## Testing the Fix
+## Fix for "pnpm install" Error
+
+### Problem
+Initial deployment failed with: `Command "pnpm install --no-frozen-lockfile" exited with 1`
+
+**Cause:** Missing `pnpm-lock.yaml` file in the repository.
+
+### Solution Applied
+1. ✅ Generated `pnpm-lock.yaml` by running `pnpm install` locally
+2. ✅ Updated `vercel.json` to use `--frozen-lockfile` instead of `--no-frozen-lockfile`
+3. ✅ Fixed deprecated `experimental.serverActions` in `next.config.js` (no longer needed in Next.js 14.2)
+4. ✅ Verified build works locally with turbo command
+
+### Testing the Fix
 
 After making these changes in Vercel:
 1. Trigger a new deployment (commit and push these changes)

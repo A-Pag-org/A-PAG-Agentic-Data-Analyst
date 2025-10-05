@@ -9,7 +9,7 @@
     "lint": "next lint",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "type-check": "tsc --noEmit",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "clean": "rm -rf .next node_modules"
   },
   "dependencies": {
@@ -37,6 +37,7 @@
     "react-icons": "^5.0.1"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "@types/node": "^20.11.24",
     "@types/react": "^18.2.61",
     "@types/react-dom": "^18.2.19",

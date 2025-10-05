@@ -1,0 +1,12 @@
+backend
+docker
+docs
+.github
+.husky
+*.md
+!frontend/**
+Makefile
+docker-compose.yml
+.python-version
+.commitlintrc.json
+.editorconfig

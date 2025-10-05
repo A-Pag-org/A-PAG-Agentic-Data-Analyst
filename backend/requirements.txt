@@ -10,4 +10,14 @@ openai>=1.43
 chromadb>=0.5
 llama-index-core>=0.11
 llama-index-embeddings-openai>=0.2
+# LlamaIndex integrations
+llama-index-llms-openai>=0.2
+llama-index-retrievers-bm25>=0.2
+llama-index-vector-stores-postgres>=0.2
+# Reranking (local, avoids external API)
+sentence-transformers>=2.6
+# Postgres driver for pgvector
+psycopg[binary,pool]>=3.2
+# Sometimes used by BM25
+rank_bm25>=0.2
 supabase>=2.4,<3

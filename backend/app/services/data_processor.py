@@ -16,6 +16,11 @@ from ..core.config import settings
 # LlamaIndex (for constructing documents; embeddings via OpenAI client for control)
 from llama_index.core import Document, VectorStoreIndex
 
+# LlamaIndex integration utilities
+from .text_splitters import split_documents_to_texts_and_metas
+from .embeddings_cache import embed_with_cache, EmbeddingCache
+from .vector_store_pg import build_or_update_vector_index
+
 
 class DataProcessor:
     def __init__(self, chroma_persist_dir: Optional[str] = None):
@@ -30,12 +35,15 @@ class DataProcessor:
         # 1. Parse file (CSV/Excel)
         df, file_bytes, content_type = await self.parse_file(file)
 
-        # 2. Create LlamaIndex documents
-        documents, texts, metadatas = self.create_documents(df, filename=file.filename)
+        # 2. Create LlamaIndex documents (row-per-document)
+        documents, base_texts, base_metadatas = self.create_documents(df, filename=file.filename)
 
-        # 3. Generate embeddings and build an in-memory index (optional)
+        # 3. Split into semantic/sentence chunks and embed with cache
+        texts, metadatas = split_documents_to_texts_and_metas(documents)
         embeddings = self.generate_embeddings(texts)
-        _ = VectorStoreIndex.from_documents(documents)
+
+        # Optionally build an in-memory index (useful for local queries)
+        _ = VectorStoreIndex.from_documents([Document(text=t, metadata=m) for t, m in zip(texts, metadatas)])
 
         # 4. Store in Supabase pgvector (and metadata about original file)
         original_data_id = self.store_in_supabase(
@@ -48,7 +56,14 @@ class DataProcessor:
             embeddings=embeddings,
         )
 
-        # 5. Create / update ChromaDB collection for hybrid search
+        # 5. Index into Postgres pgvector via LlamaIndex store (for hybrid retrieval)
+        try:
+            self.index_into_pgvector(texts=texts, metadatas=metadatas)
+        except Exception:
+            # Don't fail the whole request if vector indexing fails; storage in Supabase succeeded
+            pass
+
+        # 6. Create / update ChromaDB collection (optional legacy hybrid)
         collection_name = self.upsert_into_chroma(
             user_id=user_id,
             original_data_id=original_data_id,
@@ -111,18 +126,21 @@ class DataProcessor:
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         if not texts:
             return []
-        # Batch to respect token and rate limits
-        batch_size = 100
-        all_embeddings: List[List[float]] = []
-        for start in range(0, len(texts), batch_size):
-            batch = texts[start : start + batch_size]
-            resp = self.openai_client.embeddings.create(
-                model=self.embedding_model_name,
-                input=batch,
-            )
-            batch_embeddings: List[List[float]] = [item.embedding for item in resp.data]
-            all_embeddings.extend(batch_embeddings)
-        return all_embeddings
+        # Use local SQLite cache
+        cache = EmbeddingCache()
+        return embed_with_cache(
+            texts,
+            client=self.openai_client,
+            model=self.embedding_model_name,
+            batch_size=100,
+            cache=cache,
+        )
+
+    def index_into_pgvector(self, texts: List[str], metadatas: List[Dict[str, Any]]) -> None:
+        if not texts:
+            return
+        docs = [Document(text=t, metadata=m) for t, m in zip(texts, metadatas)]
+        _ = build_or_update_vector_index(docs)
 
     def store_in_supabase(
         self,

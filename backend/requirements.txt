@@ -21,3 +21,6 @@ psycopg[binary,pool]>=3.2
 # Sometimes used by BM25
 rank_bm25>=0.2
 supabase>=2.4,<3
+# LangChain agent framework
+langchain>=0.2
+langchain-openai>=0.2

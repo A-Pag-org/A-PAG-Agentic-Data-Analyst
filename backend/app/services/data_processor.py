@@ -1,0 +1,199 @@
+from __future__ import annotations
+
+import io
+import os
+from typing import Any, Dict, List, Optional, Tuple
+
+import pandas as pd
+from fastapi import UploadFile
+from openai import OpenAI
+import chromadb
+from chromadb import PersistentClient
+
+from .supabase_client import get_supabase_service_client
+from ..core.config import settings
+
+# LlamaIndex (for constructing documents; embeddings via OpenAI client for control)
+from llama_index.core import Document, VectorStoreIndex
+
+
+class DataProcessor:
+    def __init__(self, chroma_persist_dir: Optional[str] = None):
+        persist_dir = chroma_persist_dir or settings.chroma_persist_dir or "chroma_index"
+        # Ensure directory exists
+        os.makedirs(persist_dir, exist_ok=True)
+        self.chroma_client: PersistentClient = chromadb.PersistentClient(path=persist_dir)
+        self.embedding_model_name: str = settings.embedding_model or "text-embedding-3-large"
+        self.openai_client = OpenAI(api_key=settings.openai_api_key)
+
+    async def process_upload(self, file: UploadFile, user_id: str) -> Dict[str, Any]:
+        # 1. Parse file (CSV/Excel)
+        df, file_bytes, content_type = await self.parse_file(file)
+
+        # 2. Create LlamaIndex documents
+        documents, texts, metadatas = self.create_documents(df, filename=file.filename)
+
+        # 3. Generate embeddings and build an in-memory index (optional)
+        embeddings = self.generate_embeddings(texts)
+        _ = VectorStoreIndex.from_documents(documents)
+
+        # 4. Store in Supabase pgvector (and metadata about original file)
+        original_data_id = self.store_in_supabase(
+            user_id=user_id,
+            filename=file.filename,
+            file_size=len(file_bytes),
+            df=df,
+            texts=texts,
+            metadatas=metadatas,
+            embeddings=embeddings,
+        )
+
+        # 5. Create / update ChromaDB collection for hybrid search
+        collection_name = self.upsert_into_chroma(
+            user_id=user_id,
+            original_data_id=original_data_id,
+            texts=texts,
+            metadatas=metadatas,
+            embeddings=embeddings,
+        )
+
+        return {
+            "status": "success",
+            "document_count": len(documents),
+            "rows": len(texts),
+            "original_data_id": original_data_id,
+            "chroma_collection": collection_name,
+        }
+
+    async def parse_file(self, file: UploadFile) -> Tuple[pd.DataFrame, bytes, str]:
+        content: bytes = await file.read()
+        ext = os.path.splitext(file.filename or "")[1].lower()
+        content_type = file.content_type or "application/octet-stream"
+
+        if ext in [".xlsx", ".xls"]:
+            # Excel
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            # Default to CSV
+            try:
+                df = pd.read_csv(io.BytesIO(content))
+            except UnicodeDecodeError:
+                df = pd.read_csv(io.BytesIO(content), encoding="latin-1")
+
+        if not isinstance(df, pd.DataFrame):
+            raise ValueError("Parsed file is not a valid DataFrame")
+
+        return df, content, content_type
+
+    def create_documents(
+        self, df: pd.DataFrame, filename: Optional[str] = None
+    ) -> Tuple[List[Document], List[str], List[Dict[str, Any]]]:
+        safe_df = df.fillna("").astype(str)
+        records: List[Dict[str, str]] = safe_df.to_dict(orient="records")
+
+        documents: List[Document] = []
+        texts: List[str] = []
+        metadatas: List[Dict[str, Any]] = []
+
+        for row_index, record in enumerate(records):
+            text = " | ".join(f"{key}: {value}" for key, value in record.items())
+            metadata: Dict[str, Any] = {
+                "row_index": row_index,
+                "filename": filename or "",
+                "columns": list(safe_df.columns),
+            }
+            documents.append(Document(text=text, metadata=metadata))
+            texts.append(text)
+            metadatas.append(metadata)
+
+        return documents, texts, metadatas
+
+    def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+        if not texts:
+            return []
+        # Batch to respect token and rate limits
+        batch_size = 100
+        all_embeddings: List[List[float]] = []
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start : start + batch_size]
+            resp = self.openai_client.embeddings.create(
+                model=self.embedding_model_name,
+                input=batch,
+            )
+            batch_embeddings: List[List[float]] = [item.embedding for item in resp.data]
+            all_embeddings.extend(batch_embeddings)
+        return all_embeddings
+
+    def store_in_supabase(
+        self,
+        user_id: str,
+        filename: str,
+        file_size: int,
+        df: pd.DataFrame,
+        texts: List[str],
+        metadatas: List[Dict[str, Any]],
+        embeddings: List[List[float]],
+    ) -> str:
+        supabase = get_supabase_service_client()
+
+        # Insert original_data row
+        original_insert = supabase.table("original_data").insert(
+            {
+                "filename": filename,
+                "file_size": file_size,
+                "user_id": user_id,
+                "metadata": {"columns": list(df.columns), "row_count": len(df)},
+            }
+        ).execute()
+
+        if not getattr(original_insert, "data", None):
+            raise RuntimeError("Failed to insert original_data row")
+        original_data_id: str = original_insert.data[0]["id"]
+
+        # Prepare chunk rows for data_chunks
+        rows: List[Dict[str, Any]] = []
+        for idx, (text, meta, emb) in enumerate(zip(texts, metadatas, embeddings)):
+            rows.append(
+                {
+                    "original_data_id": original_data_id,
+                    "chunk_index": idx,
+                    "content": text,
+                    "metadata": meta,
+                    "embedding": emb,
+                }
+            )
+
+        # Insert in batches to avoid payload limits
+        batch_size = 500
+        for start in range(0, len(rows), batch_size):
+            batch = rows[start : start + batch_size]
+            resp = supabase.table("data_chunks").insert(batch).execute()
+            if getattr(resp, "error", None):
+                raise RuntimeError(f"Failed to insert data_chunks batch: {resp.error}")
+
+        return original_data_id
+
+    def upsert_into_chroma(
+        self,
+        user_id: str,
+        original_data_id: str,
+        texts: List[str],
+        metadatas: List[Dict[str, Any]],
+        embeddings: List[List[float]],
+    ) -> str:
+        collection_name = f"user_{user_id}"
+        collection = self.chroma_client.get_or_create_collection(name=collection_name, metadata={"user_id": user_id})
+
+        ids = [f"{original_data_id}:{i}" for i in range(len(texts))]
+        # Chroma upsert via add; duplicates will error, so we can try delete then add
+        try:
+            collection.add(ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings)
+        except Exception:
+            # Attempt overwrite by deleting and re-adding
+            try:
+                collection.delete(ids=ids)
+            except Exception:
+                pass
+            collection.add(ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings)
+
+        return collection_name

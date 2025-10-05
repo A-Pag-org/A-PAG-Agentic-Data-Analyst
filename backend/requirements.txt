@@ -24,3 +24,11 @@ supabase>=2.4,<3
 # LangChain agent framework
 langchain>=0.2
 langchain-openai>=0.2
+# Advanced analytics
+prophet>=1.1
+cmdstanpy>=1.2
+statsmodels>=0.14
+scipy>=1.11
+geopandas>=0.14
+shapely>=2.0
+pyproj>=3.6

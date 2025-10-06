@@ -150,13 +150,10 @@ export default function Home() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-        <Box>
+        <Box textAlign="center">
           <Heading size="xl" mb={2}>
-            AI-Powered Data Analytics Platform
+            Agentic Data Analyst
           </Heading>
-          <Text color="gray.600">
-            Upload your data, ask questions, and get intelligent insights with visualizations
-          </Text>
         </Box>
 
         <Tabs colorScheme="blue" variant="enclosed">

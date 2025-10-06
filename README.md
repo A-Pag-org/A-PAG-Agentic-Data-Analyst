@@ -55,12 +55,34 @@ Frontend will be available at [http://localhost:3000](http://localhost:3000)
 
 ## Environment Variables
 
-You'll need to set up environment variables for:
-- Supabase configuration
-- OpenAI API keys
-- Any other service credentials
+### Required Environment Variables
 
-Create a `.env.local` file in the `frontend` directory and a `.env` file in the `backend` directory with the necessary credentials.
+#### Backend (.env)
+Copy `.env.example` to `.env` in the root directory and configure:
+
+**Required:**
+- `SUPABASE_URL` - Your Supabase project URL
+- `SUPABASE_ANON_KEY` - Supabase anonymous key
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
+- `OPENAI_API_KEY` - Your OpenAI API key
+- `DATABASE_URL` - Supabase Postgres connection string
+
+**Optional:**
+- `REDIS_URL` - Redis cache URL (for production caching)
+- `COHERE_API_KEY` - If using Cohere reranker
+- See `.env.example` for all configuration options
+
+#### Frontend (.env.local)
+Copy `frontend/.env.local.example` to `frontend/.env.local` and configure:
+
+**Required:**
+- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
+
+### Deployment (Vercel)
+When deploying to Vercel, set these environment variables in your project settings:
+- All frontend variables (NEXT_PUBLIC_*)
+- Backend variables are typically set separately if using a separate backend deployment
 
 ## Project Structure
 

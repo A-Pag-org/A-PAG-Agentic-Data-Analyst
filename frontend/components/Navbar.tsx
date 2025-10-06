@@ -27,10 +27,10 @@ function ColorModeToggle() {
 
 export default function Navbar() {
   return (
-    <Box as="header" borderBottomWidth="1px" px={4} py={2} bg={useColorModeValue('gray.50', 'gray.900')}>
+    <Box as="header" borderBottomWidth="1px" px={4} py={3} bg={useColorModeValue('white', 'gray.900')} boxShadow="sm">
       <Flex align="center" gap={3}>
-        <Text fontWeight="bold">
-          <NextLink href="/">App</NextLink>
+        <Text fontWeight="bold" fontSize="xl">
+          <NextLink href="/">📊 AI Data Analytics</NextLink>
         </Text>
         <Spacer />
         <HStack spacing={2}>

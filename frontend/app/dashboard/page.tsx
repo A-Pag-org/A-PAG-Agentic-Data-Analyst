@@ -1,15 +1,12 @@
-import { Box, Heading, Stack, Text } from '@chakra-ui/react';
-import dynamic from 'next/dynamic';
-const Counter = dynamic(() => import('@/components/Counter'), { loading: () => null });
+'use client';
+
+import { redirect } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function DashboardPage() {
-  return (
-    <Box px={6} py={10}>
-      <Stack spacing={4}>
-        <Heading size="lg">Dashboard</Heading>
-        <Text>Welcome to your dashboard!</Text>
-        <Counter />
-      </Stack>
-    </Box>
-  );
+  useEffect(() => {
+    redirect('/');
+  }, []);
+
+  return null;
 }

@@ -101,6 +101,7 @@ export const VisualizationRenderer: React.FC<{ config: VisualizationConfig }> = 
       return <HeatmapChart data={config.data} options={config.options} />;
     default:
       // Exhaustive check to catch unhandled types during development
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       ((_: never) => { /* no-op */ })(config);
       return null;
   }

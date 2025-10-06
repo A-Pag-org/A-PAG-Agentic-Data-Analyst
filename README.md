@@ -1,17 +1,107 @@
-# Getting Started
+# AI Data Analytics Platform 📊
 
-This is a full-stack application with a FastAPI backend and Next.js frontend.
+AI-powered data analytics platform with natural language queries and intelligent visualizations.
 
-## Quick Start
+## ✨ Features
 
-### Option 1: Run Everything (Recommended)
+- 🤖 **Natural Language Queries** - Ask questions in plain English
+- 📊 **Automatic Visualizations** - AI generates appropriate charts and graphs
+- 🔮 **Forecasting** - Predict future trends from your data
+- 📁 **Multiple Data Formats** - Support for CSV, Excel, and JSON
+- 💡 **Smart Insights** - AI discovers patterns and anomalies
+- 📤 **Export Results** - Download charts and reports
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- Python 3.9+
+- Supabase account ([Sign up free](https://supabase.com/))
+- OpenAI API key ([Get your key](https://platform.openai.com/api-keys))
+
+### 1. Install Dependencies
 
 ```bash
-# Install frontend dependencies
+# Frontend
+cd frontend
 npm install
 
-# Run the frontend development server
+# Backend
+cd ../backend
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment
+
+```bash
+# Backend - Copy and edit .env
+cp .env.example .env
+# Add your Supabase and OpenAI credentials
+
+# Frontend - Copy and edit .env.local  
+cp frontend/.env.local.example frontend/.env.local
+# Add your Supabase URL and keys
+```
+
+### 3. Run the Application
+
+**Terminal 1 - Backend:**
+```bash
+cd backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2 - Frontend:**
+```bash
+cd frontend
 npm run dev
+```
+
+### 4. Access the App
+
+Open [http://localhost:3000](http://localhost:3000) in your browser 🎉
+
+**📖 For detailed setup instructions, see [SETUP_GUIDE.md](SETUP_GUIDE.md)**
+
+## 📖 How to Use
+
+### Step 1: Upload Your Data
+1. Go to the **"Upload Data"** tab
+2. Select a CSV, Excel, or JSON file
+3. Click "Upload Data"
+
+### Step 2: Ask Questions
+1. Go to the **"Analyze Data"** tab  
+2. Type your question (e.g., "What are the top 5 products by revenue?")
+3. Enable visualizations and forecasting (optional)
+4. Click "Analyze Data"
+
+### Step 3: Get Insights
+- View AI-generated answers
+- Explore interactive visualizations
+- Review discovered insights
+- Export results
+
+## 💬 Example Queries
+
+```
+✅ What are my top selling products this month?
+✅ Show me sales trends over the last year
+✅ Which customers have the highest lifetime value?
+✅ Compare Q1 and Q2 performance
+✅ Predict next quarter's revenue
+✅ Find anomalies in the transaction data
+```
+
+## 📁 Project Structure
+
+```
+.
+├── backend/          # FastAPI backend with AI agents
+├── frontend/         # Next.js frontend with Chakra UI
+├── supabase/         # Database migrations
+├── .env.example      # Backend environment template
+└── SETUP_GUIDE.md    # Detailed setup instructions
 ```
 
 The frontend will be available at [http://localhost:3000](http://localhost:3000)

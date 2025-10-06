@@ -4,7 +4,7 @@ import "./globals.css";
 import Providers from "./providers";
 import { Analytics } from "@vercel/analytics/react";
 import { ColorModeScript } from "@chakra-ui/react";
-import theme from "@/theme";
+import { themeConfig } from "@/theme/config";
 import Navbar from "@/components/Navbar";
 
 const geistSans = Geist({
@@ -30,7 +30,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ColorModeScript initialColorMode={theme.config.initialColorMode} />
+        <ColorModeScript initialColorMode={themeConfig.initialColorMode} />
         <Providers>
           <Navbar />
           {children}

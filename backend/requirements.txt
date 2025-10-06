@@ -16,6 +16,8 @@ llama-index-retrievers-bm25>=0.2
 llama-index-vector-stores-postgres>=0.2
 # Reranking (local, avoids external API)
 sentence-transformers>=2.6
+# Optional: Cohere reranking
+cohere>=5.5
 # Postgres driver for pgvector
 psycopg[binary,pool]>=3.2
 # Sometimes used by BM25

@@ -35,10 +35,17 @@ def build_hybrid_query_engine(user_id: str) -> RetrieverQueryEngine:
     # Fusion retriever combines both
     fusion = QueryFusionRetriever(retrievers=[bm25, vector_retriever], num_queries=1)
 
-    # Re-ranking with cross encoder
-    reranker = SentenceTransformerRerank(
-        model=settings.reranker_model,
-        top_n=settings.reranker_top_n,
-    )
+    # Configure reranking strategy
+    postprocessors = None
+    provider = (settings.reranker_provider or "local").lower()
+    if provider == "local":
+        reranker = SentenceTransformerRerank(
+            model=settings.reranker_model,
+            top_n=settings.reranker_top_n,
+        )
+        postprocessors = [reranker]
+    else:
+        # Cohere or other providers will be handled outside the query engine
+        postprocessors = None
 
-    return RetrieverQueryEngine(retriever=fusion, node_postprocessors=[reranker])
+    return RetrieverQueryEngine(retriever=fusion, node_postprocessors=postprocessors)

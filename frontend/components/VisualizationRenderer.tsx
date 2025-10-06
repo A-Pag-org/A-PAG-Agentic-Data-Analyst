@@ -9,7 +9,7 @@ export type ChartOptions = {
 
 export interface VisualizationConfig {
   type: "line" | "bar" | "scatter" | "map" | "heatmap";
-  data: any[];
+  data: unknown[];
   options: ChartOptions;
   metadata: {
     title: string;
@@ -19,7 +19,7 @@ export interface VisualizationConfig {
 }
 
 interface ChartProps {
-  data: any[];
+  data: unknown[];
   options: ChartOptions;
 }
 

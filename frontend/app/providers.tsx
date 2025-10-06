@@ -6,10 +6,9 @@ import theme from '@/theme';
 
 type ProvidersProps = {
   children: ReactNode;
-  cookies?: string | null;
 };
 
-export default function Providers({ children, cookies }: ProvidersProps) {
+export default function Providers({ children }: ProvidersProps) {
   return (
     <ChakraProvider theme={theme}>
       <ColorModeScript initialColorMode={theme.config.initialColorMode} />

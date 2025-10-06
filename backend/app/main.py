@@ -12,3 +12,6 @@ def create_app() -> FastAPI:
     app.include_router(api_router, prefix="/api/v1")
 
     return app
+
+# Expose a module-level app for ASGI servers that don't use factory mode
+app = create_app()

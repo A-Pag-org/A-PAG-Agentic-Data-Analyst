@@ -1,25 +1,49 @@
 'use client';
 import React from 'react';
-import { Box, Heading, List, ListItem, ListIcon } from '@chakra-ui/react';
+import { Heading, List, ListItem, ListIcon, useColorModeValue, Card, CardBody } from '@chakra-ui/react';
 import { CheckCircleIcon } from '@chakra-ui/icons';
 import type { VisualizationConfig } from './VisualizationRenderer';
 
 export const VizInsights: React.FC<{ insights: VisualizationConfig['metadata']['insights'] }> = ({ insights }) => {
+  const cardBg = useColorModeValue('blue.50', 'blue.900');
+  
   if (!insights || insights.length === 0) {
     return null;
   }
 
   return (
-    <Box w="full" mt={4}>
-      <Heading size="sm" mb={2}>Insights</Heading>
-      <List spacing={1}>
-        {insights.map((insight, index) => (
-          <ListItem key={index} display="flex" alignItems="start">
-            <ListIcon as={CheckCircleIcon} color="green.400" />
-            {insight}
-          </ListItem>
-        ))}
-      </List>
-    </Box>
+    <Card 
+      w="full" 
+      mt={6}
+      bg={cardBg}
+      borderLeft="4px solid"
+      borderColor="brand.500"
+      className="fade-in"
+    >
+      <CardBody>
+        <Heading size="md" mb={4} fontWeight="600">
+          💡 Key Insights
+        </Heading>
+        <List spacing={3}>
+          {insights.map((insight, index) => (
+            <ListItem 
+              key={index} 
+              display="flex" 
+              alignItems="start"
+              fontSize="sm"
+              lineHeight="1.6"
+            >
+              <ListIcon 
+                as={CheckCircleIcon} 
+                color="brand.500" 
+                mt={0.5}
+                boxSize={5}
+              />
+              {insight}
+            </ListItem>
+          ))}
+        </List>
+      </CardBody>
+    </Card>
   );
 };

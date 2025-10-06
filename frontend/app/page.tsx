@@ -30,6 +30,12 @@ import {
 } from '@chakra-ui/react';
 import { VisualizationEngine } from '@/components/VisualizationEngine';
 
+interface AnalysisResult {
+  answer?: string;
+  visualization_data?: unknown;
+  forecast_data?: unknown;
+}
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [userId, setUserId] = useState('demo-user');
@@ -37,7 +43,7 @@ export default function Home() {
   const [visualize, setVisualize] = useState(true);
   const [forecast, setForecast] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
   const toast = useToast();
 
@@ -220,13 +226,13 @@ export default function Home() {
                     </Box>
                   )}
 
-                  {analysisResult && !loading && (
+                  {analysisResult && !loading ? (
                     <Box mt={6}>
                       <Heading size="md" mb={4}>
                         Analysis Results
                       </Heading>
                       
-                      {analysisResult.answer && (
+                      {analysisResult.answer ? (
                         <Alert status="info" mb={4}>
                           <AlertIcon />
                           <Box>
@@ -234,16 +240,16 @@ export default function Home() {
                             <AlertDescription>{analysisResult.answer}</AlertDescription>
                           </Box>
                         </Alert>
-                      )}
+                      ) : null}
 
-                      {analysisResult.visualization_data && (
+                      {analysisResult.visualization_data ? (
                         <VisualizationEngine
                           data={analysisResult.visualization_data}
                           query={query}
                         />
-                      )}
+                      ) : null}
 
-                      {analysisResult.forecast_data && (
+                      {analysisResult.forecast_data ? (
                         <Box mt={4}>
                           <Heading size="sm" mb={2}>
                             Forecast Results
@@ -256,9 +262,9 @@ export default function Home() {
                             </CardBody>
                           </Card>
                         </Box>
-                      )}
+                      ) : null}
                     </Box>
-                  )}
+                  ) : null}
                 </CardBody>
               </Card>
             </TabPanel>
@@ -318,7 +324,7 @@ export default function Home() {
                     <Box>
                       <Heading size="sm" mb={2}>Step 1: Upload Your Data</Heading>
                       <Text>
-                        Go to the "Upload Data" tab and upload your CSV, Excel, or JSON file.
+                        Go to the &ldquo;Upload Data&rdquo; tab and upload your CSV, Excel, or JSON file.
                         The system will process and index your data for analysis.
                       </Text>
                     </Box>
@@ -326,7 +332,7 @@ export default function Home() {
                     <Box>
                       <Heading size="sm" mb={2}>Step 2: Ask Questions</Heading>
                       <Text>
-                        Switch to the "Analyze Data" tab and ask questions about your data in natural language.
+                        Switch to the &ldquo;Analyze Data&rdquo; tab and ask questions about your data in natural language.
                         Examples:
                       </Text>
                       <Box as="ul" pl={6} mt={2}>
@@ -362,7 +368,7 @@ export default function Home() {
                       <Box>
                         <AlertTitle>Pro Tip!</AlertTitle>
                         <AlertDescription>
-                          Enable "Generate Visualizations" for charts and graphs, and "Include Forecasting" 
+                          Enable &ldquo;Generate Visualizations&rdquo; for charts and graphs, and &ldquo;Include Forecasting&rdquo; 
                           for predictive analytics.
                         </AlertDescription>
                       </Box>

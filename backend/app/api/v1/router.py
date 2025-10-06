@@ -15,11 +15,12 @@ def get_api_router(minimal: bool = False) -> APIRouter:
     if not minimal:
         # Import heavy routes lazily to avoid importing large dependencies
         # in test/minimal environments.
-        from . import ingest, search, agents, export  # noqa: WPS433
+        from . import ingest, search, agents, export, evaluation  # noqa: WPS433
 
         router.include_router(ingest.router)
         router.include_router(search.router)
         router.include_router(agents.router)
         router.include_router(export.router)
+        router.include_router(evaluation.router)
 
     return router

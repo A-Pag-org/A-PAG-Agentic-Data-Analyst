@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
-import { Box, Heading, Stack, Text } from '@chakra-ui/react';
+import { Box, Divider, Heading, Stack, Text } from '@chakra-ui/react';
+import DashboardOverview from '@/components/DashboardOverview';
+import QuerySection from '@/components/QuerySection';
 import Counter from '@/components/Counter';
 
 export default async function DashboardPage() {
@@ -10,15 +12,20 @@ export default async function DashboardPage() {
 
   return (
     <Box px={6} py={10}>
-      <Stack spacing={4}>
+      <Stack spacing={6}>
         <Heading size="lg">Dashboard</Heading>
-        {user ? (
-          <Text>Signed in as {user.email}</Text>
-        ) : (
-          <Text>Not signed in</Text>
-        )}
+        {user ? <Text>Signed in as {user.email}</Text> : <Text>Not signed in</Text>}
+
+        <DashboardOverview />
+
+        <Divider />
+
+        <QuerySection />
+
         <Counter />
       </Stack>
     </Box>
   );
 }
+
+//

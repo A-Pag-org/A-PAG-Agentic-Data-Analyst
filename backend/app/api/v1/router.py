@@ -1,4 +1,11 @@
 from fastapi import APIRouter
+
+try:
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest, REGISTRY  # type: ignore
+except Exception:
+    CONTENT_TYPE_LATEST = None  # type: ignore
+    generate_latest = None  # type: ignore
+    REGISTRY = None  # type: ignore
 from . import health
 
 
@@ -22,5 +29,13 @@ def get_api_router(minimal: bool = False) -> APIRouter:
         router.include_router(agents.router)
         router.include_router(export.router)
         router.include_router(evaluation.router)
+
+        # Expose Prometheus metrics if prometheus_client is available
+        if generate_latest is not None and CONTENT_TYPE_LATEST is not None:
+            @router.get("/metrics")
+            async def metrics():  # type: ignore[no-redef]
+                content = generate_latest(REGISTRY) if REGISTRY is not None else b""
+                from fastapi.responses import Response
+                return Response(content=content, media_type=CONTENT_TYPE_LATEST)
 
     return router

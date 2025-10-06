@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
+import { Analytics } from "@vercel/analytics/react";
 import Navbar from "@/components/Navbar";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -47,6 +48,7 @@ export default async function RootLayout({
         <Providers>
           <Navbar userEmail={userEmail} />
           {children}
+          <Analytics />
         </Providers>
       </body>
     </html>

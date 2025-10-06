@@ -3,6 +3,16 @@ from __future__ import annotations
 import os
 
 from fastapi import FastAPI
+import os
+
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+except Exception:
+    sentry_sdk = None  # type: ignore
+    FastApiIntegration = None  # type: ignore
+    StarletteIntegration = None  # type: ignore
 from .api.v1.router import get_api_router
 from .middleware.auth import auth_middleware
 
@@ -14,6 +24,24 @@ def create_app(*, minimal: bool | None = None) -> FastAPI:
     """
     if minimal is None:
         minimal = os.getenv("APP_MINIMAL", "").lower() in {"1", "true", "yes", "on"}
+
+    # Initialize Sentry once per process if configured
+    if sentry_sdk is not None and (os.getenv("SENTRY_DSN") or os.getenv("BACKEND_SENTRY_DSN")):
+        try:
+            sentry_sdk.init(
+                dsn=os.getenv("SENTRY_DSN") or os.getenv("BACKEND_SENTRY_DSN"),
+                enable_tracing=True,
+                traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+                profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.0")),
+                environment=os.getenv("SENTRY_ENVIRONMENT") or os.getenv("ENVIRONMENT") or "development",
+                integrations=[
+                    *( [FastApiIntegration()] if FastApiIntegration else [] ),
+                    *( [StarletteIntegration()] if StarletteIntegration else [] ),
+                ],
+            )
+        except Exception:
+            # Proceed without Sentry if initialization fails
+            pass
 
     app = FastAPI(title="Backend API", version="0.1.0")
 

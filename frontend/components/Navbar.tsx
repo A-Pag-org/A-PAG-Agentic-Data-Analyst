@@ -29,7 +29,10 @@ function ColorModeToggle() {
 export default function Navbar() {
   return (
     <Box as="header" borderBottomWidth="1px" px={4} py={3} bg={useColorModeValue('white', 'gray.900')} boxShadow="sm">
-      <Flex align="center" gap={3}>
+      <Flex align="center" justify="space-between">
+        <Box width="120px">
+          {/* Spacer for left side */}
+        </Box>
         <NextLink href="/">
           <HStack spacing={3} cursor="pointer">
             <Image
@@ -40,12 +43,11 @@ export default function Navbar() {
               style={{ objectFit: 'contain' }}
             />
             <Text fontWeight="bold" fontSize="xl">
-              A-PAG Data Analyst
+              Agentic Data Analyst
             </Text>
           </HStack>
         </NextLink>
-        <Spacer />
-        <HStack spacing={2}>
+        <HStack spacing={2} width="120px" justify="flex-end">
           <ColorModeToggle />
         </HStack>
       </Flex>

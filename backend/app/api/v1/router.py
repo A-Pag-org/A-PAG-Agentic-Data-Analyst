@@ -1,13 +1,25 @@
 from fastapi import APIRouter
 from . import health
-from . import ingest
-from . import search
-from . import agents
-from . import export
 
-api_router = APIRouter()
-api_router.include_router(health.router, tags=["health"])
-api_router.include_router(ingest.router)
-api_router.include_router(search.router)
-api_router.include_router(agents.router)
-api_router.include_router(export.router)
+
+def get_api_router(minimal: bool = False) -> APIRouter:
+    """Build the API router.
+
+    When minimal=True, only include lightweight routes that have no heavy
+    third-party dependencies. This is useful for fast unit/integration tests
+    that do not require the full RAG stack to be importable.
+    """
+    router = APIRouter()
+    router.include_router(health.router, tags=["health"])
+
+    if not minimal:
+        # Import heavy routes lazily to avoid importing large dependencies
+        # in test/minimal environments.
+        from . import ingest, search, agents, export  # noqa: WPS433
+
+        router.include_router(ingest.router)
+        router.include_router(search.router)
+        router.include_router(agents.router)
+        router.include_router(export.router)
+
+    return router

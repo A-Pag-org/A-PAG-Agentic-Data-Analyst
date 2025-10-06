@@ -1,23 +1,41 @@
 import puppeteer from 'puppeteer';
+import type { Browser, PDFOptions } from 'puppeteer';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // seconds
 
+type PdfRequestBody = {
+  html?: string;
+  url?: string;
+  fileName?: string;
+  format?: PDFOptions['format'];
+  landscape?: boolean;
+  emulateMediaType?: 'screen' | 'print';
+  margin?: {
+    top?: string | number;
+    right?: string | number;
+    bottom?: string | number;
+    left?: string | number;
+  };
+  waitForSelector?: string;
+  timeoutMs?: number;
+};
+
 export async function POST(req: NextRequest) {
-  let browser: puppeteer.Browser | null = null;
+  let browser: Browser | null = null;
   try {
-    const body = await req.json();
-    const html: string | undefined = body?.html;
-    const url: string | undefined = body?.url;
-    const fileName: string = body?.fileName || 'report.pdf';
-    const format: string = body?.format || 'A4';
-    const landscape: boolean = Boolean(body?.landscape);
-    const emulateMediaType: 'screen' | 'print' = body?.emulateMediaType === 'print' ? 'print' : 'screen';
-    const margin = body?.margin || {};
-    const waitForSelector: string | undefined = body?.waitForSelector;
-    const timeoutMs: number = typeof body?.timeoutMs === 'number' ? body.timeoutMs : 30000;
+    const body = (await req.json()) as Partial<PdfRequestBody>;
+    const html: string | undefined = body.html;
+    const url: string | undefined = body.url;
+    const fileName: string = body.fileName ?? 'report.pdf';
+    const format: PDFOptions['format'] = body.format ?? 'A4';
+    const landscape: boolean = Boolean(body.landscape);
+    const emulateMediaType: 'screen' | 'print' = body.emulateMediaType === 'print' ? 'print' : 'screen';
+    const margin = body.margin ?? {};
+    const waitForSelector: string | undefined = body.waitForSelector;
+    const timeoutMs: number = typeof body.timeoutMs === 'number' ? body.timeoutMs : 30000;
 
     if (!html && !url) {
       return NextResponse.json({ error: 'Provide either html or url' }, { status: 400 });
@@ -43,7 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     const pdfBuffer = await page.pdf({
-      format: format as any,
+      format,
       landscape,
       printBackground: true,
       margin: {
@@ -52,8 +70,7 @@ export async function POST(req: NextRequest) {
         bottom: margin.bottom ?? '0.4in',
         left: margin.left ?? '0.4in',
       },
-      timeout: timeoutMs,
-    } as any);
+    });
 
     const headers = new Headers({
       'Content-Type': 'application/pdf',
@@ -61,9 +78,12 @@ export async function POST(req: NextRequest) {
       'Cache-Control': 'no-store',
     });
 
-    return new NextResponse(pdfBuffer, { status: 200, headers });
-  } catch (err: any) {
-    return NextResponse.json({ error: String(err?.message || err) }, { status: 500 });
+    const ab = new ArrayBuffer(pdfBuffer.length);
+    new Uint8Array(ab).set(pdfBuffer);
+    return new NextResponse(ab, { status: 200, headers });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   } finally {
     if (browser) {
       try { await browser.close(); } catch { /* ignore */ }

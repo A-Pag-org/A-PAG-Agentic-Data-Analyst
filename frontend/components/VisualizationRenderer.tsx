@@ -100,7 +100,7 @@ export const VisualizationRenderer: React.FC<{ config: VisualizationConfig }> = 
       return <HeatmapChart data={config.data} options={config.options} />;
     default:
       // Exhaustive check to catch unhandled types during development
-      const _exhaustiveCheck: never = config;
+      ((__unused: never) => { /* no-op */ })(config);
       return null;
   }
 };

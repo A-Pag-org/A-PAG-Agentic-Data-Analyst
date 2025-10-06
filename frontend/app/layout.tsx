@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 import { Analytics } from "@vercel/analytics/react";
+import { ColorModeScript } from "@chakra-ui/react";
+import { themeConfig } from "@/theme/config";
 import Navbar from "@/components/Navbar";
 
 const geistSans = Geist({
@@ -26,12 +28,13 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ColorModeScript initialColorMode={themeConfig.initialColorMode} />
         <Providers>
           <Navbar />
           {children}
-          <Analytics />
+          {process.env.NODE_ENV === 'production' && <Analytics />}
         </Providers>
       </body>
     </html>

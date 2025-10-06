@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { Box, Heading, Stack, Text } from '@chakra-ui/react';
-import Counter from '@/components/Counter';
+import dynamic from 'next/dynamic';
+const Counter = dynamic(() => import('@/components/Counter'), { loading: () => null });
 
 export default async function DashboardPage() {
   const supabase = await createClient();

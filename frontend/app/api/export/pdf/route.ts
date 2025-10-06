@@ -1,5 +1,8 @@
-import puppeteer from 'puppeteer';
-import type { Browser, PDFOptions } from 'puppeteer';
+export const preferredRegion = ['iad1', 'cdg1'];
+
+// Lazy import to reduce cold start
+type Browser = import('puppeteer').Browser;
+type PDFOptions = import('puppeteer').PDFOptions;
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -26,6 +29,7 @@ type PdfRequestBody = {
 export async function POST(req: NextRequest) {
   let browser: Browser | null = null;
   try {
+    const puppeteer = await import('puppeteer');
     const body = (await req.json()) as Partial<PdfRequestBody>;
     const html: string | undefined = body.html;
     const url: string | undefined = body.url;

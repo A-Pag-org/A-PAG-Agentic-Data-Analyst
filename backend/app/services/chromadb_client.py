@@ -3,7 +3,7 @@ from __future__ import annotations
 import gzip
 import io
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Set
 
 import chromadb
 
@@ -11,10 +11,16 @@ from ..core.config import settings
 from .supabase_client import get_supabase_service_client
 from .embeddings_cache import embed_with_cache, EmbeddingCache
 from openai import OpenAI
+from threading import Lock
 
 # Singleton clients to avoid re-initialization in serverless
 _chroma_client: Optional[Any] = None
 _openai_client: Optional[OpenAI] = None
+
+# Serverless-optimized collection cache (per cold start)
+_collection_cache: Dict[str, Any] = {}
+_autoload_attempted: Set[str] = set()
+_collection_cache_lock: Lock = Lock()
 
 
 def _get_openai_client() -> OpenAI:
@@ -67,9 +73,24 @@ def get_or_create_collection_for(
     if metadata:
         base_meta.update(metadata)
 
-    coll = client.get_or_create_collection(name=name, metadata=base_meta)
+    # Resolve from cache or create once per cold start
+    with _collection_cache_lock:
+        coll = _collection_cache.get(name)
+        if coll is None:
+            coll = client.get_or_create_collection(name=name, metadata=base_meta)
+            _collection_cache[name] = coll
 
-    if autoload and settings.chroma_autosave:
+        # Gate autoload to a single attempt per collection per cold start
+        do_autoload = bool(autoload and settings.chroma_autosave and (name not in _autoload_attempted))
+        if do_autoload:
+            _autoload_attempted.add(name)
+
+    if 'coll' not in locals():
+        # Defensive: should never happen, but keeps type checkers happy
+        coll = client.get_or_create_collection(name=name, metadata=base_meta)
+
+    # Perform autoload outside the lock
+    if do_autoload:
         try:
             # Only attempt autoload if empty
             if coll.count() == 0:

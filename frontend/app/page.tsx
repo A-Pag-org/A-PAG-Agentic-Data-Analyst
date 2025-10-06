@@ -1,20 +1,14 @@
-import { Box, Button, Heading, Stack, Text } from "@chakra-ui/react";
-import Link from "next/link";
+import { Box, Heading, Stack, Text } from "@chakra-ui/react";
+import dynamic from 'next/dynamic';
+const Counter = dynamic(() => import('@/components/Counter'), { loading: () => null });
 
 export default function Home() {
   return (
     <Box px={6} py={10}>
       <Stack spacing={4}>
-        <Heading size="lg">Welcome</Heading>
-        <Text>Next.js + Chakra UI + Supabase + Zustand scaffold.</Text>
-        <Stack direction={{ base: "column", sm: "row" }}>
-          <Button as={Link} href="/login" colorScheme="teal">
-            Login
-          </Button>
-          <Button as={Link} href="/dashboard" variant="outline">
-            Dashboard
-          </Button>
-        </Stack>
+        <Heading size="lg">Dashboard</Heading>
+        <Text>Welcome to your app!</Text>
+        <Counter />
       </Stack>
     </Box>
   );

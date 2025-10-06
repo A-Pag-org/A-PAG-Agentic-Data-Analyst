@@ -4,7 +4,6 @@ import "./globals.css";
 import Providers from "./providers";
 import { Analytics } from "@vercel/analytics/react";
 import Navbar from "@/components/Navbar";
-import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,27 +25,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const hasSupabase = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-  let userEmail: string | null = null;
-  if (hasSupabase) {
-    try {
-      const supabase = await createSupabaseServerClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      userEmail = user?.email ?? null;
-    } catch {
-      userEmail = null;
-    }
-  }
-
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
-          <Navbar userEmail={userEmail} />
+          <Navbar />
           {children}
           <Analytics />
         </Providers>

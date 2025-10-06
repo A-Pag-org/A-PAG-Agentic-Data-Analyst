@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..core.config import settings
@@ -96,6 +97,30 @@ class RAGEvaluator:
         graded_relevance: Optional[Dict[str, float]] = None,
         use_cross_encoder: bool = False,
     ) -> Dict[str, Any]:
+        # Optional metrics via prometheus_client if available
+        try:
+            from prometheus_client import Histogram, Counter  # type: ignore
+        except Exception:
+            Histogram = None  # type: ignore
+            Counter = None  # type: ignore
+        eval_latency = None
+        eval_count = None
+        if Histogram is not None and Counter is not None:
+            try:
+                eval_latency = Histogram(
+                    "rag_retrieval_eval_latency_seconds",
+                    "Latency of RAG retrieval evaluation",
+                    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5),
+                )
+                eval_count = Counter(
+                    "rag_retrieval_eval_total",
+                    "Total RAG retrieval evaluations",
+                )
+            except Exception:
+                eval_latency = None
+                eval_count = None
+
+        t0 = time.perf_counter()
         top_k = min(k or len(retrieved_docs), len(retrieved_docs))
         docs_topk = list(retrieved_docs[:top_k])
 
@@ -120,7 +145,7 @@ class RAGEvaluator:
             provided_scores = [d.score for d in docs_topk if isinstance(d.score, (int, float))]
             relevance_score = sum(provided_scores) / len(provided_scores) if provided_scores else None
 
-        return {
+        result = {
             "k": top_k,
             "hit_rate": hit_rate,
             "precision": precision,
@@ -130,6 +155,17 @@ class RAGEvaluator:
             "map": ap,
             "relevance_score": relevance_score,
         }
+        if eval_count is not None:
+            try:
+                eval_count.inc()
+            except Exception:
+                pass
+        if eval_latency is not None:
+            try:
+                eval_latency.observe(time.perf_counter() - t0)
+            except Exception:
+                pass
+        return result
 
     # -------------------- Generation Evaluation --------------------
     def evaluate_generation(
@@ -141,6 +177,30 @@ class RAGEvaluator:
         run_relevance: bool = True,
         run_coherence: bool = True,
     ) -> Dict[str, Any]:
+        # Optional metrics via prometheus_client if available
+        try:
+            from prometheus_client import Histogram, Counter  # type: ignore
+        except Exception:
+            Histogram = None  # type: ignore
+            Counter = None  # type: ignore
+        eval_latency = None
+        eval_count = None
+        if Histogram is not None and Counter is not None:
+            try:
+                eval_latency = Histogram(
+                    "rag_generation_eval_latency_seconds",
+                    "Latency of RAG generation evaluation",
+                    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5),
+                )
+                eval_count = Counter(
+                    "rag_generation_eval_total",
+                    "Total RAG generation evaluations",
+                )
+            except Exception:
+                eval_latency = None
+                eval_count = None
+
+        t0 = time.perf_counter()
         _lazy_import_llamaindex_evaluators()
         results: Dict[str, Any] = {}
         contexts = list(contexts or [])
@@ -180,6 +240,16 @@ class RAGEvaluator:
                 # Fallback heuristic coherence: average similarity between adjacent sentences
                 results["coherence"] = self._heuristic_coherence(response)
 
+        if eval_count is not None:
+            try:
+                eval_count.inc()
+            except Exception:
+                pass
+        if eval_latency is not None:
+            try:
+                eval_latency.observe(time.perf_counter() - t0)
+            except Exception:
+                pass
         return results
 
     # -------------------- Internals: Retrieval --------------------

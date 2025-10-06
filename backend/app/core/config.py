@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     # Embedding cache
     embedding_cache_path: str = Field(default="cache/embeddings.sqlite3", alias="EMBEDDING_CACHE_PATH")
 
+    # Redis cache
+    redis_url: str | None = Field(default=None, alias="REDIS_URL")
+    cache_ttl_seconds: int = Field(default=300, alias="CACHE_TTL_SECONDS")
+
     # Retrieval / reranking
     retriever_top_k: int = Field(default=8, alias="RETRIEVER_TOP_K")
     reranker_top_n: int = Field(default=5, alias="RERANKER_TOP_N")

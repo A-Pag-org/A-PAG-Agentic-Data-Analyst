@@ -34,3 +34,5 @@ scipy>=1.11
 geopandas>=0.14
 shapely>=2.0
 pyproj>=3.6
+# Caching
+redis>=5.0

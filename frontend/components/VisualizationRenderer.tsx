@@ -1,3 +1,4 @@
+'use client';
 import React from "react";
 
 export type ChartOptions = {
@@ -100,7 +101,7 @@ export const VisualizationRenderer: React.FC<{ config: VisualizationConfig }> = 
       return <HeatmapChart data={config.data} options={config.options} />;
     default:
       // Exhaustive check to catch unhandled types during development
-      ((__unused: never) => { /* no-op */ })(config);
+      ((_: never) => { /* no-op */ })(config);
       return null;
   }
 };

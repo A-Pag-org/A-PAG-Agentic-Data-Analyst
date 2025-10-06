@@ -8,6 +8,15 @@ const nextConfig: NextConfig = {
       "framer-motion",
     ],
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'a-pag.org',
+        pathname: '/wp-content/uploads/**',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

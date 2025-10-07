@@ -76,6 +76,24 @@ export default function Navbar() {
             />
           </Box>
         </NextLink>
+        <Box position="absolute" left="50%" transform="translateX(-50%)">
+          <NextLink href="/">
+            <Text 
+              fontWeight="600" 
+              fontSize={{ base: 'md', md: 'xl' }}
+              bgGradient="linear(to-r, brand.500, brand.700)"
+              bgClip="text"
+              letterSpacing="-0.02em"
+              cursor="pointer"
+              transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+              _hover={{
+                transform: 'translateY(-2px)',
+              }}
+            >
+              Agentic Data Analyst
+            </Text>
+          </NextLink>
+        </Box>
         <HStack spacing={2} justify="flex-end">
           <ColorModeToggle />
         </HStack>

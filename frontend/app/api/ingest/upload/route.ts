@@ -30,7 +30,13 @@ export async function POST(req: NextRequest) {
     }
 
     const headers: Record<string, string> = {};
-    const authToken = process.env.BACKEND_BEARER_TOKEN || process.env.NEXT_PUBLIC_BACKEND_BEARER_TOKEN;
+    // Support multiple env var names to reduce misconfig risk across platforms
+    const authToken =
+      process.env.BACKEND_BEARER_TOKEN ||
+      process.env.BACKEND_AUTH_BEARER_TOKEN ||
+      process.env.NEXT_PUBLIC_BACKEND_BEARER_TOKEN ||
+      process.env.AUTH_BEARER_TOKEN ||
+      process.env.NEXT_PUBLIC_AUTH_BEARER_TOKEN;
     if (authToken) headers['authorization'] = `Bearer ${authToken}`;
 
     const res = await fetch(`${backend}/api/v1/ingest/upload`, {

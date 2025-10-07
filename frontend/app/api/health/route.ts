@@ -12,7 +12,12 @@ export async function GET() {
   try {
     const backend = getBackendBaseUrl();
     const headers: Record<string, string> = {};
-    const authToken = process.env.BACKEND_BEARER_TOKEN || process.env.NEXT_PUBLIC_BACKEND_BEARER_TOKEN;
+    const authToken =
+      process.env.BACKEND_BEARER_TOKEN ||
+      process.env.BACKEND_AUTH_BEARER_TOKEN ||
+      process.env.NEXT_PUBLIC_BACKEND_BEARER_TOKEN ||
+      process.env.AUTH_BEARER_TOKEN ||
+      process.env.NEXT_PUBLIC_AUTH_BEARER_TOKEN;
     if (authToken) headers['authorization'] = `Bearer ${authToken}`;
 
     const res = await fetch(`${backend}/api/v1/health`, { headers, cache: 'no-store' });

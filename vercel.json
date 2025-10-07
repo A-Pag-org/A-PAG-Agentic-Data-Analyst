@@ -4,5 +4,18 @@
   ],
   "routes": [
     { "src": "/(.*)", "dest": "frontend/$1" }
-  ]
+  ],
+  "functions": {
+    "backend/api/**/*.py": {
+      "runtime": "python3.12",
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "OPENAI_API_KEY": "@openai-api-key",
+    "SUPABASE_URL": "@supabase-url",
+    "SUPABASE_ANON_KEY": "@supabase-anon-key",
+    "NEXT_PUBLIC_SUPABASE_URL": "@supabase-url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase-anon-key"
+  }
 }

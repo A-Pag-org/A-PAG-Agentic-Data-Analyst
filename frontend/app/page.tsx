@@ -67,8 +67,8 @@ export default function Home() {
     formData.append('user_id', userId);
 
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-      const response = await fetch(`${backendUrl}/api/v1/ingest/upload`, {
+      // Proxy through Next.js API route to avoid CORS and localhost issues
+      const response = await fetch('/api/ingest/upload', {
         method: 'POST',
         body: formData,
       });

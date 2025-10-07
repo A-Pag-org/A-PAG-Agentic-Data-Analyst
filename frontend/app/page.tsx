@@ -27,6 +27,7 @@ import {
   AlertIcon,
   AlertTitle,
   AlertDescription,
+  useColorModeValue,
 } from '@chakra-ui/react';
 import { VisualizationEngine } from '@/components/VisualizationEngine';
 
@@ -147,63 +148,165 @@ export default function Home() {
     }
   };
 
-  return (
-    <Container maxW="container.xl" py={8}>
-      <VStack spacing={6} align="stretch">
-        <Tabs colorScheme="blue" variant="enclosed">
-          <TabList>
-            <Tab>📊 Analyze Data</Tab>
-            <Tab>📁 Upload Data</Tab>
-            <Tab>📖 Guide</Tab>
-          </TabList>
+  const tabBg = useColorModeValue('white', 'gray.800');
+  const gradientText = useColorModeValue(
+    'linear(to-r, brand.600, brand.500)',
+    'linear(to-r, brand.300, brand.400)'
+  );
+  const checkboxBg = useColorModeValue('gray.50', 'whiteAlpha.50');
+  const infoBg = useColorModeValue('blue.50', 'blue.900');
+  const cardBg = useColorModeValue('gray.50', 'whiteAlpha.50');
+  const successBg = useColorModeValue('green.50', 'green.900');
+  const fileButtonBg = useColorModeValue('gray.100', 'whiteAlpha.200');
+  const fileButtonHoverBg = useColorModeValue('gray.200', 'whiteAlpha.300');
+  const stepBg = useColorModeValue('gray.50', 'whiteAlpha.50');
 
-          <TabPanels>
+  return (
+    <Box className="fade-in" minH="100vh">
+      <Container maxW="1200px" py={{ base: 6, md: 12 }}>
+        <VStack spacing={8} align="stretch">
+          {/* Hero Section */}
+          <Box textAlign="center" py={{ base: 6, md: 10 }}>
+            <Heading
+              as="h1"
+              size={{ base: 'xl', md: '2xl' }}
+              fontWeight="700"
+              bgGradient={gradientText}
+              bgClip="text"
+              letterSpacing="-0.02em"
+              mb={4}
+              className="slide-in"
+            >
+              AI-Powered Data Intelligence
+            </Heading>
+            <Text 
+              fontSize={{ base: 'md', md: 'lg' }}
+              color="gray.600"
+              _dark={{ color: 'gray.400' }}
+              maxW="2xl"
+              mx="auto"
+              className="fade-in"
+            >
+              Transform your data into actionable insights with natural language queries and intelligent visualizations
+            </Text>
+          </Box>
+
+          <Tabs colorScheme="brand" variant="enclosed" className="scale-in">
+            <TabList 
+              borderBottom="none" 
+              gap={2}
+              flexWrap="wrap"
+              bg={tabBg}
+              p={2}
+              borderRadius="16px"
+              boxShadow="sm"
+            >
+              <Tab
+                fontSize={{ base: 'sm', md: 'md' }}
+                fontWeight="500"
+                borderRadius="12px"
+                _selected={{
+                  bg: 'brand.500',
+                  color: 'white',
+                  boxShadow: '0 4px 12px -2px rgba(99, 102, 241, 0.4)',
+                }}
+                transition="all 0.2s"
+              >
+                📊 Analyze
+              </Tab>
+              <Tab
+                fontSize={{ base: 'sm', md: 'md' }}
+                fontWeight="500"
+                borderRadius="12px"
+                _selected={{
+                  bg: 'brand.500',
+                  color: 'white',
+                  boxShadow: '0 4px 12px -2px rgba(99, 102, 241, 0.4)',
+                }}
+                transition="all 0.2s"
+              >
+                📁 Upload
+              </Tab>
+              <Tab
+                fontSize={{ base: 'sm', md: 'md' }}
+                fontWeight="500"
+                borderRadius="12px"
+                _selected={{
+                  bg: 'brand.500',
+                  color: 'white',
+                  boxShadow: '0 4px 12px -2px rgba(99, 102, 241, 0.4)',
+                }}
+                transition="all 0.2s"
+              >
+                📖 Guide
+              </Tab>
+            </TabList>
+
+          <TabPanels pt={6}>
             {/* Analyze Tab */}
-            <TabPanel>
+            <TabPanel px={0}>
               <Card>
-                <CardBody>
+                <CardBody p={{ base: 6, md: 8 }}>
                   <form onSubmit={handleAnalyze}>
-                    <VStack spacing={4} align="stretch">
+                    <VStack spacing={6} align="stretch">
                       <FormControl isRequired>
-                        <FormLabel>User ID</FormLabel>
+                        <FormLabel fontWeight="500" mb={3}>User ID</FormLabel>
                         <Input
                           value={userId}
                           onChange={(e) => setUserId(e.target.value)}
                           placeholder="Enter your user ID"
+                          size="lg"
+                          fontSize="md"
                         />
                       </FormControl>
 
                       <FormControl isRequired>
-                        <FormLabel>Your Question</FormLabel>
+                        <FormLabel fontWeight="500" mb={3}>Your Question</FormLabel>
                         <Textarea
                           value={query}
                           onChange={(e) => setQuery(e.target.value)}
                           placeholder="e.g., What are the sales trends for the last quarter?"
-                          rows={4}
+                          rows={5}
+                          fontSize="md"
+                          resize="vertical"
                         />
                       </FormControl>
 
-                      <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
+                      <Stack 
+                        direction={{ base: 'column', md: 'row' }} 
+                        spacing={4}
+                        p={4}
+                        bg={checkboxBg}
+                        borderRadius="12px"
+                      >
                         <Checkbox
                           isChecked={visualize}
                           onChange={(e) => setVisualize(e.target.checked)}
+                          colorScheme="brand"
+                          size="lg"
                         >
-                          Generate Visualizations
+                          <Text fontSize="sm" fontWeight="500">Generate Visualizations</Text>
                         </Checkbox>
                         <Checkbox
                           isChecked={forecast}
                           onChange={(e) => setForecast(e.target.checked)}
+                          colorScheme="brand"
+                          size="lg"
                         >
-                          Include Forecasting
+                          <Text fontSize="sm" fontWeight="500">Include Forecasting</Text>
                         </Checkbox>
                       </Stack>
 
                       <Button
                         type="submit"
-                        colorScheme="blue"
+                        colorScheme="brand"
                         size="lg"
+                        height="56px"
+                        fontSize="md"
+                        fontWeight="600"
                         isLoading={loading}
                         loadingText="Analyzing..."
+                        mt={2}
                       >
                         Analyze Data
                       </Button>
@@ -211,24 +314,38 @@ export default function Home() {
                   </form>
 
                   {loading && (
-                    <Box mt={6} textAlign="center">
-                      <Spinner size="xl" color="blue.500" />
-                      <Text mt={4}>Analyzing your data with AI...</Text>
+                    <Box mt={8} textAlign="center" py={8} className="fade-in">
+                      <Spinner 
+                        size="xl" 
+                        color="brand.500"
+                        thickness="4px"
+                        speed="0.8s"
+                      />
+                      <Text mt={6} fontSize="md" color="gray.600" _dark={{ color: 'gray.400' }}>
+                        Analyzing your data with AI...
+                      </Text>
                     </Box>
                   )}
 
                   {analysisResult && !loading ? (
-                    <Box mt={6}>
-                      <Heading size="md" mb={4}>
+                    <Box mt={8} className="fade-in">
+                      <Heading size="md" mb={6} fontWeight="600">
                         Analysis Results
                       </Heading>
                       
                       {analysisResult.answer ? (
-                        <Alert status="info" mb={4}>
-                          <AlertIcon />
+                        <Alert 
+                          status="info" 
+                          mb={6}
+                          borderRadius="12px"
+                          bg={infoBg}
+                          borderLeft="4px solid"
+                          borderColor="brand.500"
+                        >
+                          <AlertIcon color="brand.500" />
                           <Box>
-                            <AlertTitle>Answer</AlertTitle>
-                            <AlertDescription>{analysisResult.answer}</AlertDescription>
+                            <AlertTitle fontWeight="600">Answer</AlertTitle>
+                            <AlertDescription fontSize="md" mt={1}>{analysisResult.answer}</AlertDescription>
                           </Box>
                         </Alert>
                       ) : null}
@@ -241,13 +358,18 @@ export default function Home() {
                       ) : null}
 
                       {analysisResult.forecast_data ? (
-                        <Box mt={4}>
-                          <Heading size="sm" mb={2}>
+                        <Box mt={6}>
+                          <Heading size="sm" mb={4} fontWeight="600">
                             Forecast Results
                           </Heading>
-                          <Card>
+                          <Card bg={cardBg}>
                             <CardBody>
-                              <pre style={{ overflow: 'auto', fontSize: '14px' }}>
+                              <pre style={{ 
+                                overflow: 'auto', 
+                                fontSize: '13px',
+                                fontFamily: 'var(--font-geist-mono), monospace',
+                                lineHeight: '1.6'
+                              }}>
                                 {JSON.stringify(analysisResult.forecast_data, null, 2)}
                               </pre>
                             </CardBody>
@@ -261,41 +383,73 @@ export default function Home() {
             </TabPanel>
 
             {/* Upload Tab */}
-            <TabPanel>
+            <TabPanel px={0}>
               <Card>
-                <CardBody>
+                <CardBody p={{ base: 6, md: 8 }}>
                   <form onSubmit={handleFileUpload}>
-                    <VStack spacing={4} align="stretch">
-                      <Alert status="info">
-                        <AlertIcon />
-                        Upload CSV, Excel, or JSON files to analyze your data
+                    <VStack spacing={6} align="stretch">
+                      <Alert 
+                        status="info" 
+                        borderRadius="12px"
+                        bg={infoBg}
+                        borderLeft="4px solid"
+                        borderColor="brand.500"
+                      >
+                        <AlertIcon color="brand.500" />
+                        <Text fontSize="sm" fontWeight="500">
+                          Upload CSV, Excel, or JSON files to analyze your data
+                        </Text>
                       </Alert>
 
                       <FormControl isRequired>
-                        <FormLabel>User ID</FormLabel>
+                        <FormLabel fontWeight="500" mb={3}>User ID</FormLabel>
                         <Input
                           value={userId}
                           onChange={(e) => setUserId(e.target.value)}
                           placeholder="Enter your user ID"
+                          size="lg"
+                          fontSize="md"
                         />
                       </FormControl>
 
                       <FormControl isRequired>
-                        <FormLabel>Select File</FormLabel>
+                        <FormLabel fontWeight="500" mb={3}>Select File</FormLabel>
                         <Input
                           type="file"
                           accept=".csv,.xlsx,.xls,.json"
                           onChange={(e) => setFile(e.target.files?.[0] || null)}
-                          p={1}
+                          p={3}
+                          size="lg"
+                          fontSize="sm"
+                          sx={{
+                            '::file-selector-button': {
+                              height: '36px',
+                              marginRight: '12px',
+                              borderRadius: '8px',
+                              border: 'none',
+                              bg: fileButtonBg,
+                              fontWeight: '500',
+                              fontSize: 'sm',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              _hover: {
+                                bg: fileButtonHoverBg,
+                              },
+                            },
+                          }}
                         />
                       </FormControl>
 
                       <Button
                         type="submit"
-                        colorScheme="green"
+                        colorScheme="brand"
                         size="lg"
+                        height="56px"
+                        fontSize="md"
+                        fontWeight="600"
                         isLoading={uploadLoading}
                         loadingText="Uploading..."
+                        mt={2}
                       >
                         Upload Data
                       </Button>
@@ -306,59 +460,107 @@ export default function Home() {
             </TabPanel>
 
             {/* Guide Tab */}
-            <TabPanel>
+            <TabPanel px={0}>
               <Card>
-                <CardBody>
-                  <VStack spacing={4} align="stretch">
-                    <Heading size="md">📚 How to Use This App</Heading>
+                <CardBody p={{ base: 6, md: 8 }}>
+                  <VStack spacing={6} align="stretch">
+                    <Heading size="lg" fontWeight="700" mb={2}>
+                      📚 How to Use This App
+                    </Heading>
                     
-                    <Box>
-                      <Heading size="sm" mb={2}>Step 1: Upload Your Data</Heading>
-                      <Text>
-                        Go to the &ldquo;Upload Data&rdquo; tab and upload your CSV, Excel, or JSON file.
+                    <Box 
+                      p={6} 
+                      bg={stepBg}
+                      borderRadius="16px"
+                      borderLeft="4px solid"
+                      borderColor="brand.500"
+                    >
+                      <Heading size="md" mb={3} fontWeight="600">Step 1: Upload Your Data</Heading>
+                      <Text fontSize="md" color="gray.700" _dark={{ color: 'gray.300' }} lineHeight="1.7">
+                        Go to the &ldquo;Upload&rdquo; tab and upload your CSV, Excel, or JSON file.
                         The system will process and index your data for analysis.
                       </Text>
                     </Box>
 
-                    <Box>
-                      <Heading size="sm" mb={2}>Step 2: Ask Questions</Heading>
-                      <Text>
-                        Switch to the &ldquo;Analyze Data&rdquo; tab and ask questions about your data in natural language.
-                        Examples:
+                    <Box 
+                      p={6} 
+                      bg={stepBg}
+                      borderRadius="16px"
+                      borderLeft="4px solid"
+                      borderColor="brand.500"
+                    >
+                      <Heading size="md" mb={3} fontWeight="600">Step 2: Ask Questions</Heading>
+                      <Text fontSize="md" color="gray.700" _dark={{ color: 'gray.300' }} mb={3} lineHeight="1.7">
+                        Switch to the &ldquo;Analyze&rdquo; tab and ask questions about your data in natural language.
                       </Text>
-                      <Box as="ul" pl={6} mt={2}>
-                        <li>What are the top 5 products by revenue?</li>
-                        <li>Show me sales trends over the last 6 months</li>
-                        <li>Which customers have the highest lifetime value?</li>
-                        <li>Compare Q1 and Q2 performance</li>
-                      </Box>
+                      <Text fontSize="sm" fontWeight="600" mb={2}>Examples:</Text>
+                      <VStack align="stretch" spacing={2} pl={4}>
+                        <Text fontSize="sm" color="gray.600" _dark={{ color: 'gray.400' }}>
+                          • What are the top 5 products by revenue?
+                        </Text>
+                        <Text fontSize="sm" color="gray.600" _dark={{ color: 'gray.400' }}>
+                          • Show me sales trends over the last 6 months
+                        </Text>
+                        <Text fontSize="sm" color="gray.600" _dark={{ color: 'gray.400' }}>
+                          • Which customers have the highest lifetime value?
+                        </Text>
+                        <Text fontSize="sm" color="gray.600" _dark={{ color: 'gray.400' }}>
+                          • Compare Q1 and Q2 performance
+                        </Text>
+                      </VStack>
                     </Box>
 
-                    <Box>
-                      <Heading size="sm" mb={2}>Step 3: Get Insights</Heading>
-                      <Text>
+                    <Box 
+                      p={6} 
+                      bg={stepBg}
+                      borderRadius="16px"
+                      borderLeft="4px solid"
+                      borderColor="brand.500"
+                    >
+                      <Heading size="md" mb={3} fontWeight="600">Step 3: Get Insights</Heading>
+                      <Text fontSize="md" color="gray.700" _dark={{ color: 'gray.300' }} mb={3} lineHeight="1.7">
                         The AI will analyze your data and provide:
                       </Text>
-                      <Box as="ul" pl={6} mt={2}>
-                        <li>✅ Natural language answers</li>
-                        <li>📊 Interactive visualizations</li>
-                        <li>📈 Forecasts (when enabled)</li>
-                        <li>💡 Data insights</li>
-                      </Box>
+                      <VStack align="stretch" spacing={2} pl={4}>
+                        <Text fontSize="sm" color="gray.600" _dark={{ color: 'gray.400' }}>
+                          ✅ Natural language answers
+                        </Text>
+                        <Text fontSize="sm" color="gray.600" _dark={{ color: 'gray.400' }}>
+                          📊 Interactive visualizations
+                        </Text>
+                        <Text fontSize="sm" color="gray.600" _dark={{ color: 'gray.400' }}>
+                          📈 Forecasts (when enabled)
+                        </Text>
+                        <Text fontSize="sm" color="gray.600" _dark={{ color: 'gray.400' }}>
+                          💡 Data insights
+                        </Text>
+                      </VStack>
                     </Box>
 
-                    <Box>
-                      <Heading size="sm" mb={2}>Step 4: Export Results</Heading>
-                      <Text>
+                    <Box 
+                      p={6} 
+                      bg={stepBg}
+                      borderRadius="16px"
+                      borderLeft="4px solid"
+                      borderColor="brand.500"
+                    >
+                      <Heading size="md" mb={3} fontWeight="600">Step 4: Export Results</Heading>
+                      <Text fontSize="md" color="gray.700" _dark={{ color: 'gray.300' }} lineHeight="1.7">
                         Use the visualization export options to download charts and reports.
                       </Text>
                     </Box>
 
-                    <Alert status="success" mt={4}>
-                      <AlertIcon />
+                    <Alert 
+                      status="success" 
+                      borderRadius="16px"
+                      bg={successBg}
+                      borderLeft="4px solid"
+                      borderColor="green.500"
+                    >
+                      <AlertIcon color="green.500" />
                       <Box>
-                        <AlertTitle>Pro Tip!</AlertTitle>
-                        <AlertDescription>
+                        <AlertTitle fontWeight="600" fontSize="md">Pro Tip!</AlertTitle>
+                        <AlertDescription fontSize="sm" mt={1}>
                           Enable &ldquo;Generate Visualizations&rdquo; for charts and graphs, and &ldquo;Include Forecasting&rdquo; 
                           for predictive analytics.
                         </AlertDescription>
@@ -372,5 +574,6 @@ export default function Home() {
         </Tabs>
       </VStack>
     </Container>
+    </Box>
   );
 }

@@ -27,7 +27,12 @@ export async function POST(req: NextRequest) {
     const headers: Record<string, string> = {
       'content-type': 'application/json',
     };
-    const authToken = process.env.BACKEND_BEARER_TOKEN || process.env.NEXT_PUBLIC_BACKEND_BEARER_TOKEN;
+    const authToken =
+      process.env.BACKEND_BEARER_TOKEN ||
+      process.env.BACKEND_AUTH_BEARER_TOKEN ||
+      process.env.NEXT_PUBLIC_BACKEND_BEARER_TOKEN ||
+      process.env.AUTH_BEARER_TOKEN ||
+      process.env.NEXT_PUBLIC_AUTH_BEARER_TOKEN;
     if (authToken) headers['authorization'] = `Bearer ${authToken}`;
 
     const res = await fetch(`${backend}/api/v1/agents/analyze`, {

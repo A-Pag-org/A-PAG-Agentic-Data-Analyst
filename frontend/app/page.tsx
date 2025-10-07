@@ -30,6 +30,7 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import { VisualizationEngine } from '@/components/VisualizationEngine';
+import SplitPane from '@/components/SplitPane';
 
 interface AnalysisResult {
   answer?: string;
@@ -149,10 +150,7 @@ export default function Home() {
   };
 
   const tabBg = useColorModeValue('white', 'gray.800');
-  const gradientText = useColorModeValue(
-    'linear(to-r, brand.600, brand.500)',
-    'linear(to-r, brand.300, brand.400)'
-  );
+  // gradientText not needed on this page
   const checkboxBg = useColorModeValue('gray.50', 'whiteAlpha.50');
   const infoBg = useColorModeValue('blue.50', 'blue.900');
   const cardBg = useColorModeValue('gray.50', 'whiteAlpha.50');
@@ -163,7 +161,7 @@ export default function Home() {
 
   return (
     <Box className="fade-in" minH="100vh">
-      <Container maxW="1200px" py={{ base: 6, md: 12 }}>
+      <Container maxW="1400px" py={{ base: 6, md: 12 }}>
         <VStack spacing={8} align="stretch">
           <Tabs colorScheme="brand" variant="enclosed" className="scale-in">
             <TabList 
@@ -219,147 +217,177 @@ export default function Home() {
           <TabPanels pt={6}>
             {/* Analyze Tab */}
             <TabPanel px={0}>
-              <Card>
-                <CardBody p={{ base: 6, md: 8 }}>
-                  <form onSubmit={handleAnalyze}>
-                    <VStack spacing={6} align="stretch">
-                      <FormControl isRequired>
-                        <FormLabel fontWeight="500" mb={3}>User ID</FormLabel>
-                        <Input
-                          value={userId}
-                          onChange={(e) => setUserId(e.target.value)}
-                          placeholder="Enter your user ID"
-                          size="lg"
-                          fontSize="md"
-                          border="1px solid"
-                          borderColor="gray.300"
-                          _dark={{ borderColor: 'gray.600' }}
-                        />
-                      </FormControl>
+              <SplitPane
+                minLeft={300}
+                minRight={520}
+                defaultLeft={420}
+                storageKey="analyze-split-left"
+                left={
+                  <Box height="100%" overflow="auto">
+                    <Card height="100%">
+                      <CardBody p={{ base: 5, md: 6 }}>
+                        <form onSubmit={handleAnalyze}>
+                          <VStack spacing={6} align="stretch">
+                            <FormControl isRequired>
+                              <FormLabel fontWeight="500" mb={3}>User ID</FormLabel>
+                              <Input
+                                value={userId}
+                                onChange={(e) => setUserId(e.target.value)}
+                                placeholder="Enter your user ID"
+                                size="lg"
+                                fontSize="md"
+                                border="1px solid"
+                                borderColor="gray.300"
+                                _dark={{ borderColor: 'gray.600' }}
+                              />
+                            </FormControl>
 
-                      <FormControl isRequired>
-                        <FormLabel fontWeight="500" mb={3}>Your Question</FormLabel>
-                        <Textarea
-                          value={query}
-                          onChange={(e) => setQuery(e.target.value)}
-                          placeholder="e.g., What are the sales trends for the last quarter?"
-                          rows={5}
-                          fontSize="md"
-                          resize="vertical"
-                          border="1px solid"
-                          borderColor="gray.300"
-                          _dark={{ borderColor: 'gray.600' }}
-                        />
-                      </FormControl>
+                            <FormControl isRequired>
+                              <FormLabel fontWeight="500" mb={3}>Your Question</FormLabel>
+                              <Textarea
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="e.g., What are the sales trends for the last quarter?"
+                                rows={8}
+                                fontSize="md"
+                                resize="vertical"
+                                border="1px solid"
+                                borderColor="gray.300"
+                                _dark={{ borderColor: 'gray.600' }}
+                              />
+                            </FormControl>
 
-                      <Stack 
-                        direction={{ base: 'column', md: 'row' }} 
-                        spacing={4}
-                        p={4}
-                        bg={checkboxBg}
-                        borderRadius="12px"
-                      >
-                        <Checkbox
-                          isChecked={visualize}
-                          onChange={(e) => setVisualize(e.target.checked)}
-                          colorScheme="brand"
-                          size="lg"
-                        >
-                          <Text fontSize="sm" fontWeight="500">Generate Visualizations</Text>
-                        </Checkbox>
-                        <Checkbox
-                          isChecked={forecast}
-                          onChange={(e) => setForecast(e.target.checked)}
-                          colorScheme="brand"
-                          size="lg"
-                        >
-                          <Text fontSize="sm" fontWeight="500">Include Forecasting</Text>
-                        </Checkbox>
-                      </Stack>
+                            <Stack 
+                              direction={{ base: 'column', md: 'row' }} 
+                              spacing={4}
+                              p={4}
+                              bg={checkboxBg}
+                              borderRadius="12px"
+                            >
+                              <Checkbox
+                                isChecked={visualize}
+                                onChange={(e) => setVisualize(e.target.checked)}
+                                colorScheme="brand"
+                                size="lg"
+                              >
+                                <Text fontSize="sm" fontWeight="500">Generate Visualizations</Text>
+                              </Checkbox>
+                              <Checkbox
+                                isChecked={forecast}
+                                onChange={(e) => setForecast(e.target.checked)}
+                                colorScheme="brand"
+                                size="lg"
+                              >
+                                <Text fontSize="sm" fontWeight="500">Include Forecasting</Text>
+                              </Checkbox>
+                            </Stack>
 
-                      <Button
-                        type="submit"
-                        colorScheme="brand"
-                        size="lg"
-                        height="56px"
-                        fontSize="md"
-                        fontWeight="600"
-                        isLoading={loading}
-                        loadingText="Analyzing..."
-                        mt={2}
-                      >
-                        Analyze Data
-                      </Button>
-                    </VStack>
-                  </form>
-
-                  {loading && (
-                    <Box mt={8} textAlign="center" py={8} className="fade-in">
-                      <Spinner 
-                        size="xl" 
-                        color="brand.500"
-                        thickness="4px"
-                        speed="0.8s"
-                      />
-                      <Text mt={6} fontSize="md" color="gray.600" _dark={{ color: 'gray.400' }}>
-                        Analyzing your data with AI...
-                      </Text>
-                    </Box>
-                  )}
-
-                  {analysisResult && !loading ? (
-                    <Box mt={8} className="fade-in">
-                      <Heading size="md" mb={6} fontWeight="600">
-                        Analysis Results
-                      </Heading>
-                      
-                      {analysisResult.answer ? (
-                        <Alert 
-                          status="info" 
-                          mb={6}
-                          borderRadius="12px"
-                          bg={infoBg}
-                          borderLeft="4px solid"
-                          borderColor="brand.500"
-                        >
-                          <AlertIcon color="brand.500" />
-                          <Box>
-                            <AlertTitle fontWeight="600">Answer</AlertTitle>
-                            <AlertDescription fontSize="md" mt={1}>{analysisResult.answer}</AlertDescription>
+                            <Button
+                              type="submit"
+                              colorScheme="brand"
+                              size="lg"
+                              height="56px"
+                              fontSize="md"
+                              fontWeight="600"
+                              isLoading={loading}
+                              loadingText="Analyzing..."
+                              mt={2}
+                              w="full"
+                            >
+                              Analyze Data
+                            </Button>
+                          </VStack>
+                        </form>
+                      </CardBody>
+                    </Card>
+                  </Box>
+                }
+                right={
+                  <Box height="100%" overflow="auto">
+                    {loading ? (
+                      <Card>
+                        <CardBody>
+                          <Box textAlign="center" py={16} className="fade-in">
+                            <Spinner 
+                              size="xl" 
+                              color="brand.500"
+                              thickness="4px"
+                              speed="0.8s"
+                            />
+                            <Text mt={6} fontSize="md" color="gray.600" _dark={{ color: 'gray.400' }}>
+                              Analyzing your data with AI...
+                            </Text>
                           </Box>
-                        </Alert>
-                      ) : null}
+                        </CardBody>
+                      </Card>
+                    ) : analysisResult ? (
+                      <Box className="fade-in">
+                        {analysisResult.answer ? (
+                          <Alert 
+                            status="info" 
+                            mb={6}
+                            borderRadius="12px"
+                            bg={infoBg}
+                            borderLeft="4px solid"
+                            borderColor="brand.500"
+                          >
+                            <AlertIcon color="brand.500" />
+                            <Box>
+                              <AlertTitle fontWeight="600">Answer</AlertTitle>
+                              <AlertDescription fontSize="md" mt={1}>{analysisResult.answer}</AlertDescription>
+                            </Box>
+                          </Alert>
+                        ) : null}
 
-                      {analysisResult.visualization_data ? (
-                        <VisualizationEngine
-                          data={analysisResult.visualization_data}
-                          query={query}
-                        />
-                      ) : null}
+                        {analysisResult.visualization_data ? (
+                          <VisualizationEngine
+                            data={analysisResult.visualization_data}
+                            query={query}
+                          />
+                        ) : null}
 
-                      {analysisResult.forecast_data ? (
-                        <Box mt={6}>
-                          <Heading size="sm" mb={4} fontWeight="600">
-                            Forecast Results
-                          </Heading>
-                          <Card bg={cardBg}>
-                            <CardBody>
-                              <pre style={{ 
-                                overflow: 'auto', 
-                                fontSize: '13px',
-                                fontFamily: 'var(--font-geist-mono), monospace',
-                                lineHeight: '1.6'
-                              }}>
-                                {JSON.stringify(analysisResult.forecast_data, null, 2)}
-                              </pre>
-                            </CardBody>
-                          </Card>
-                        </Box>
-                      ) : null}
-                    </Box>
-                  ) : null}
-                </CardBody>
-              </Card>
+                        {analysisResult.forecast_data ? (
+                          <Box mt={6}>
+                            <Heading size="sm" mb={4} fontWeight="600">
+                              Forecast Results
+                            </Heading>
+                            <Card bg={cardBg}>
+                              <CardBody>
+                                <pre style={{ 
+                                  overflow: 'auto', 
+                                  fontSize: '13px',
+                                  fontFamily: 'var(--font-geist-mono), monospace',
+                                  lineHeight: '1.6'
+                                }}>
+                                  {JSON.stringify(analysisResult.forecast_data, null, 2)}
+                                </pre>
+                              </CardBody>
+                            </Card>
+                          </Box>
+                        ) : null}
+                      </Box>
+                    ) : (
+                      <Card className="fade-in" bgGradient="linear(to-br, brand.50, white)" _dark={{ bg: 'rgba(26, 32, 44, 0.6)' }}>
+                        <CardBody>
+                          <VStack spacing={4} align="stretch" py={6}>
+                            <Heading size="md" fontWeight="700">
+                              Start by asking a question
+                            </Heading>
+                            <Text color="gray.600" _dark={{ color: 'gray.400' }}>
+                              Enter your question on the left to generate insights and visualizations.
+                            </Text>
+                            <VStack align="stretch" spacing={2} pl={1}>
+                              <Text fontSize="sm" color="gray.600" _dark={{ color: 'gray.400' }}>• What are the top 5 products by revenue?</Text>
+                              <Text fontSize="sm" color="gray.600" _dark={{ color: 'gray.400' }}>• Show me sales trends over the last 6 months</Text>
+                              <Text fontSize="sm" color="gray.600" _dark={{ color: 'gray.400' }}>• Compare Q1 and Q2 performance</Text>
+                            </VStack>
+                          </VStack>
+                        </CardBody>
+                      </Card>
+                    )}
+                  </Box>
+                }
+              />
             </TabPanel>
 
             {/* Upload Tab */}

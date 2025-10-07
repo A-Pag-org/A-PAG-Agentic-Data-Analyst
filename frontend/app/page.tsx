@@ -165,32 +165,6 @@ export default function Home() {
     <Box className="fade-in" minH="100vh">
       <Container maxW="1200px" py={{ base: 6, md: 12 }}>
         <VStack spacing={8} align="stretch">
-          {/* Hero Section */}
-          <Box textAlign="center" py={{ base: 6, md: 10 }}>
-            <Heading
-              as="h1"
-              size={{ base: 'xl', md: '2xl' }}
-              fontWeight="700"
-              bgGradient={gradientText}
-              bgClip="text"
-              letterSpacing="-0.02em"
-              mb={4}
-              className="slide-in"
-            >
-              AI-Powered Data Intelligence
-            </Heading>
-            <Text 
-              fontSize={{ base: 'md', md: 'lg' }}
-              color="gray.600"
-              _dark={{ color: 'gray.400' }}
-              maxW="2xl"
-              mx="auto"
-              className="fade-in"
-            >
-              Transform your data into actionable insights with natural language queries and intelligent visualizations
-            </Text>
-          </Box>
-
           <Tabs colorScheme="brand" variant="enclosed" className="scale-in">
             <TabList 
               borderBottom="none" 
@@ -257,6 +231,9 @@ export default function Home() {
                           placeholder="Enter your user ID"
                           size="lg"
                           fontSize="md"
+                          border="1px solid"
+                          borderColor="gray.300"
+                          _dark={{ borderColor: 'gray.600' }}
                         />
                       </FormControl>
 
@@ -269,6 +246,9 @@ export default function Home() {
                           rows={5}
                           fontSize="md"
                           resize="vertical"
+                          border="1px solid"
+                          borderColor="gray.300"
+                          _dark={{ borderColor: 'gray.600' }}
                         />
                       </FormControl>
 
@@ -409,6 +389,9 @@ export default function Home() {
                           placeholder="Enter your user ID"
                           size="lg"
                           fontSize="md"
+                          border="1px solid"
+                          borderColor="gray.300"
+                          _dark={{ borderColor: 'gray.600' }}
                         />
                       </FormControl>
 
@@ -421,6 +404,9 @@ export default function Home() {
                           p={3}
                           size="lg"
                           fontSize="sm"
+                          border="1px solid"
+                          borderColor="gray.300"
+                          _dark={{ borderColor: 'gray.600' }}
                           sx={{
                             '::file-selector-button': {
                               height: '36px',

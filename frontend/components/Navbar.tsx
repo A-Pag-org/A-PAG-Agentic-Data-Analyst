@@ -59,12 +59,8 @@ export default function Navbar() {
       }}
     >
       <Flex align="center" justify="space-between" maxW="1400px" mx="auto">
-        <Box width={{ base: '60px', md: '120px' }}>
-          {/* Spacer for left side */}
-        </Box>
         <NextLink href="/">
-          <HStack 
-            spacing={3} 
+          <Box 
             cursor="pointer"
             transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
             _hover={{
@@ -78,18 +74,27 @@ export default function Navbar() {
               height={45}
               style={{ objectFit: 'contain' }}
             />
+          </Box>
+        </NextLink>
+        <Box position="absolute" left="50%" transform="translateX(-50%)">
+          <NextLink href="/">
             <Text 
               fontWeight="600" 
               fontSize={{ base: 'md', md: 'xl' }}
               bgGradient="linear(to-r, brand.500, brand.700)"
               bgClip="text"
               letterSpacing="-0.02em"
+              cursor="pointer"
+              transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+              _hover={{
+                transform: 'translateY(-2px)',
+              }}
             >
               Agentic Data Analyst
             </Text>
-          </HStack>
-        </NextLink>
-        <HStack spacing={2} width={{ base: '60px', md: '120px' }} justify="flex-end">
+          </NextLink>
+        </Box>
+        <HStack spacing={2} justify="flex-end">
           <ColorModeToggle />
         </HStack>
       </Flex>

@@ -152,7 +152,7 @@ export default function Home() {
   const tabBg = useColorModeValue('white', 'gray.800');
   // gradientText not needed on this page
   const checkboxBg = useColorModeValue('gray.50', 'whiteAlpha.50');
-  const infoBg = useColorModeValue('blue.50', 'blue.900');
+  const infoBg = useColorModeValue('yellow.50', 'yellow.900');
   const cardBg = useColorModeValue('gray.50', 'whiteAlpha.50');
   const successBg = useColorModeValue('green.50', 'green.900');
   const fileButtonBg = useColorModeValue('gray.100', 'whiteAlpha.200');
@@ -180,7 +180,7 @@ export default function Home() {
                 _selected={{
                   bg: 'brand.500',
                   color: 'white',
-                  boxShadow: '0 4px 12px -2px rgba(99, 102, 241, 0.4)',
+                  boxShadow: '0 4px 12px -2px rgba(245, 158, 11, 0.4)',
                 }}
                 transition="all 0.2s"
               >
@@ -193,7 +193,7 @@ export default function Home() {
                 _selected={{
                   bg: 'brand.500',
                   color: 'white',
-                  boxShadow: '0 4px 12px -2px rgba(99, 102, 241, 0.4)',
+                  boxShadow: '0 4px 12px -2px rgba(245, 158, 11, 0.4)',
                 }}
                 transition="all 0.2s"
               >
@@ -206,7 +206,7 @@ export default function Home() {
                 _selected={{
                   bg: 'brand.500',
                   color: 'white',
-                  boxShadow: '0 4px 12px -2px rgba(99, 102, 241, 0.4)',
+                  boxShadow: '0 4px 12px -2px rgba(245, 158, 11, 0.4)',
                 }}
                 transition="all 0.2s"
               >

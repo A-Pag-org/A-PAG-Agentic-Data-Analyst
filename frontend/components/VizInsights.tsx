@@ -5,7 +5,7 @@ import { CheckCircleIcon } from '@chakra-ui/icons';
 import type { VisualizationConfig } from './VisualizationRenderer';
 
 export const VizInsights: React.FC<{ insights: VisualizationConfig['metadata']['insights'] }> = ({ insights }) => {
-  const cardBg = useColorModeValue('blue.50', 'blue.900');
+  const cardBg = useColorModeValue('yellow.50', 'yellow.900');
   
   if (!insights || insights.length === 0) {
     return null;

@@ -35,9 +35,9 @@ export default function SplitPane({
   const startWidthRef = useRef<number>(defaultLeft);
 
   // Colors that adapt to color mode
-  const handleBg = useColorModeValue('rgba(99, 102, 241, 0.08)', 'rgba(99, 102, 241, 0.18)');
-  const handleHoverBg = useColorModeValue('rgba(99, 102, 241, 0.18)', 'rgba(99, 102, 241, 0.28)');
-  const glow = useColorModeValue('0 0 0 2px rgba(99, 102, 241, 0.15)', '0 0 0 2px rgba(99, 102, 241, 0.25)');
+  const handleBg = useColorModeValue('rgba(245, 158, 11, 0.08)', 'rgba(245, 158, 11, 0.18)');
+  const handleHoverBg = useColorModeValue('rgba(245, 158, 11, 0.18)', 'rgba(245, 158, 11, 0.28)');
+  const glow = useColorModeValue('0 0 0 2px rgba(245, 158, 11, 0.15)', '0 0 0 2px rgba(245, 158, 11, 0.25)');
 
   // Initialize from storage and watch viewport
   useEffect(() => {
@@ -205,7 +205,7 @@ export default function SplitPane({
             height="40px"
             borderRadius="full"
             bgGradient="linear(to-b, brand.400, brand.600)"
-            boxShadow="0 6px 16px -6px rgba(99, 102, 241, 0.5)"
+            boxShadow="0 6px 16px -6px rgba(245, 158, 11, 0.5)"
           />
         </Box>
       )}

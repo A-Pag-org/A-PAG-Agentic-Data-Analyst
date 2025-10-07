@@ -70,8 +70,8 @@ export default function Navbar() {
             <Image
               src="https://a-pag.org/wp-content/uploads/2022/08/APAG-final-logo-1.png"
               alt="A-PAG Logo"
-              width={120}
-              height={45}
+              width={60}
+              height={23}
               style={{ objectFit: 'contain' }}
             />
           </Box>
@@ -79,9 +79,9 @@ export default function Navbar() {
         <Box position="absolute" left="50%" transform="translateX(-50%)">
           <NextLink href="/">
             <Text 
-              fontWeight="600" 
+              fontWeight="700" 
               fontSize={{ base: 'md', md: 'xl' }}
-              bgGradient="linear(to-r, brand.500, brand.700)"
+              bgGradient="linear(to-r, brand.400, brand.600)"
               bgClip="text"
               letterSpacing="-0.02em"
               cursor="pointer"

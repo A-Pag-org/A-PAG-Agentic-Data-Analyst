@@ -13,7 +13,7 @@ export default function LoginPage() {
   };
 
   const gradientText = useColorModeValue(
-    'linear(to-r, brand.600, brand.500)',
+    'linear(to-r, brand.500, brand.600)',
     'linear(to-r, brand.300, brand.400)'
   );
 

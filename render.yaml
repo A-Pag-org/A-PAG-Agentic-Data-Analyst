@@ -1,8 +1,9 @@
+---
 envVarGroups:
   - name: shared-auth
     envVars:
       - key: AUTH_BEARER_TOKEN
-        generateValue: true
+        sync: false
 
 services:
   - type: web

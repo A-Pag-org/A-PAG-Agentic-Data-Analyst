@@ -12,6 +12,8 @@ services:
         generateValue: true
       - key: AUTH_BEARER_TOKEN
         sync: false
+      - key: ALLOW_UNAUTHENTICATED
+        value: "true"
       - key: OPENAI_API_KEY
         sync: false
       - key: SUPABASE_URL

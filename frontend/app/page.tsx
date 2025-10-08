@@ -50,9 +50,6 @@ export default function Home() {
   const toast = useToast();
 
   const authHeaders: Record<string, string> = {};
-  if (process.env.NEXT_PUBLIC_AUTH_BEARER_TOKEN) {
-    authHeaders.authorization = `Bearer ${process.env.NEXT_PUBLIC_AUTH_BEARER_TOKEN}`;
-  }
 
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();

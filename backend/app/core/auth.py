@@ -31,6 +31,10 @@ async def verify_request_authentication(request: Request) -> None:
     if _is_public_request(request):
         return
 
+    # If unauthenticated access is explicitly allowed (same-origin, single-user)
+    if settings.allow_unauthenticated:
+        return
+
     expected_token = settings.auth_bearer_token
     if not expected_token:
         # If no token configured, permit all in development for convenience

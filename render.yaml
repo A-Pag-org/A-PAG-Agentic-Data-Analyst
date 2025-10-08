@@ -1,0 +1,43 @@
+envVarGroups:
+  - name: shared-auth
+    envVars:
+      - key: AUTH_BEARER_TOKEN
+        generateValue: true
+
+services:
+  - type: web
+    name: ai-backend
+    env: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVarGroups:
+      - shared-auth
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+
+  - type: web
+    name: ai-frontend
+    env: node
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    autoDeploy: true
+    envVarGroups:
+      - shared-auth
+    envVars:
+      - key: BACKEND_URL
+        fromService:
+          name: ai-backend
+          type: web
+          property: url
+      - key: NEXT_PUBLIC_BACKEND_URL
+        fromService:
+          name: ai-backend
+          type: web
+          property: url

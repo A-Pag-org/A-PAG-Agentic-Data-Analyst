@@ -2,7 +2,7 @@ envVarGroups:
   - name: shared-auth
     envVars:
       - key: AUTH_BEARER_TOKEN
-        generateValue: true
+        value: change_me
 
 services:
   - type: web

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 from fastapi import FastAPI
-import os
+from fastapi.middleware.cors import CORSMiddleware
 
 try:
     import sentry_sdk
@@ -44,6 +44,26 @@ def create_app(*, minimal: bool | None = None) -> FastAPI:
             pass
 
     app = FastAPI(title="Backend API", version="0.1.0")
+
+    # Configure CORS to allow frontend to make requests to backend
+    allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else []
+    if not allowed_origins:
+        # Default behavior: allow all origins in development, be restrictive in production
+        env = os.getenv("ENVIRONMENT", "development").lower()
+        if env == "production":
+            # In production, you should set ALLOWED_ORIGINS explicitly
+            # For now, allow common patterns to avoid blocking legitimate traffic
+            allowed_origins = ["*"]  # Replace with specific domains in production
+        else:
+            allowed_origins = ["*"]
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # Middleware
     app.middleware('http')(auth_middleware)

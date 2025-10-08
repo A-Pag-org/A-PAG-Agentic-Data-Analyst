@@ -1,0 +1,81 @@
+# Render Blueprint for Backend Deployment
+# This file can be used to set up your service on Render
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: agentic-data-analyst-backend
+    runtime: python
+    region: oregon  # Choose your preferred region
+    plan: starter   # Change to 'free' or other plans as needed
+    branch: main    # Git branch to deploy
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      
+      - key: ALLOWED_ORIGINS
+        # Set this to your Vercel frontend URL
+        value: https://your-app.vercel.app
+      
+      - key: AUTH_BEARER_TOKEN
+        generateValue: true  # Render will generate a secure random token
+        # Or set this manually to match your frontend
+      
+      - key: PYTHON_VERSION
+        value: 3.11
+      
+      - key: SUPABASE_URL
+        sync: false  # Set manually in Render dashboard
+      
+      - key: SUPABASE_ANON_KEY
+        sync: false  # Set manually in Render dashboard
+      
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false  # Set manually in Render dashboard
+      
+      - key: OPENAI_API_KEY
+        sync: false  # Set manually in Render dashboard
+      
+      - key: CHROMA_BACKEND
+        value: persistent
+      
+      - key: CHROMA_AUTOSAVE
+        value: true
+      
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-large
+      
+      - key: USE_SEMANTIC_CHUNKING
+        value: true
+      
+      - key: CHUNK_SIZE
+        value: 512
+      
+      - key: CHUNK_OVERLAP
+        value: 50
+      
+      - key: RETRIEVER_TOP_K
+        value: 8
+      
+      - key: RERANKER_TOP_N
+        value: 5
+      
+      - key: RERANKER_PROVIDER
+        value: local
+      
+      - key: QUERY_DECOMPOSITION_ENABLED
+        value: true
+
+# Optional: Add a PostgreSQL database if needed
+# databases:
+#   - name: agentic-data-analyst-db
+#     databaseName: agentic_db
+#     user: app_user
+#     plan: starter
+#     region: oregon
+#     postgresMajorVersion: 15

@@ -8,7 +8,11 @@ const nextConfig: NextConfig = {
       "framer-motion",
     ],
   },
+  // Produce a static export suitable for hosting via the backend
+  output: 'export',
   images: {
+    // Disable Next Image Optimization since we're exporting statically
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',

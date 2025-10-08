@@ -11,6 +11,8 @@ class Settings(BaseSettings):
 
     # Auth
     auth_bearer_token: str | None = Field(default=None, alias="AUTH_BEARER_TOKEN")
+    # Allow unauthenticated requests (use with caution; recommended only for single-user or trusted deployments)
+    allow_unauthenticated: bool = Field(default=False, alias="ALLOW_UNAUTHENTICATED")
 
     # Supabase
     supabase_url: str | None = Field(default=None, alias="SUPABASE_URL")

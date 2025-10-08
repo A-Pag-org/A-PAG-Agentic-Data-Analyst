@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse
 import os
 
 try:
@@ -50,6 +52,29 @@ def create_app(*, minimal: bool | None = None) -> FastAPI:
 
     # Routers
     app.include_router(get_api_router(minimal=minimal), prefix="/api/v1")
+
+    # Static frontend (optional): serve if a build exists at ./public
+    try:
+        import os as _os
+        _public_dir = _os.path.join(_os.path.dirname(__file__), "..", "public")
+        _public_dir = _os.path.abspath(_public_dir)
+        if _os.path.isdir(_public_dir):
+            app.mount("/", StaticFiles(directory=_public_dir, html=True), name="static")
+
+            @app.get("/{full_path:path}")
+            async def spa_fallback(full_path: str):  # type: ignore[unused-argument]
+                # Allow API routes to return their own 404s
+                if full_path.startswith("api/"):
+                    from fastapi import HTTPException
+                    raise HTTPException(status_code=404, detail="Not Found")
+                index_path = _os.path.join(_public_dir, "index.html")
+                if _os.path.exists(index_path):
+                    return FileResponse(index_path)
+                from fastapi import HTTPException
+                raise HTTPException(status_code=404, detail="Index not found")
+    except Exception:
+        # If static serving fails for any reason, continue with API-only
+        pass
 
     return app
 

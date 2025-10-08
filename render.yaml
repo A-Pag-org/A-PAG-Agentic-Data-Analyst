@@ -2,7 +2,7 @@ envVarGroups:
   - name: shared-auth
     envVars:
       - key: AUTH_BEARER_TOKEN
-        generateValue: true
+        sync: false
 
 services:
   - type: web
@@ -29,8 +29,8 @@ services:
     env: node
     plan: free
     rootDir: frontend
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
     autoDeploy: true
     envVarGroups:
       - shared-auth

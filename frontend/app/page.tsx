@@ -49,6 +49,11 @@ export default function Home() {
   const [uploadLoading, setUploadLoading] = useState(false);
   const toast = useToast();
 
+  const authHeaders: Record<string, string> = {};
+  if (process.env.NEXT_PUBLIC_AUTH_BEARER_TOKEN) {
+    authHeaders.authorization = `Bearer ${process.env.NEXT_PUBLIC_AUTH_BEARER_TOKEN}`;
+  }
+
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !userId) {
@@ -67,10 +72,11 @@ export default function Home() {
     formData.append('user_id', userId);
 
     try {
-      // Proxy through Next.js API route to avoid CORS and localhost issues
-      const response = await fetch('/api/ingest/upload', {
+      // Call backend directly (same-origin on Render)
+      const response = await fetch('/api/v1/ingest/upload', {
         method: 'POST',
         body: formData,
+        headers: authHeaders,
       });
 
       if (!response.ok) {
@@ -113,9 +119,9 @@ export default function Home() {
     setAnalysisResult(null);
 
     try {
-      const response = await fetch('/api/analyze', {
+      const response = await fetch('/api/v1/agents/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({
           user_id: userId,
           query,

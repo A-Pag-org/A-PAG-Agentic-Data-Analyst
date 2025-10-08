@@ -13,11 +13,14 @@ def _is_public_request(request: Request) -> bool:
     if method in {"OPTIONS"}:
         return True
 
-    # Normalize path and strip trailing slash
+    # Normalize path and strip trailing slash; treat root as "/"
     path = (request.url.path or "").rstrip("/").lower()
+    if path == "":
+        path = "/"
 
     # Public endpoints that should be reachable without auth (production-safe)
     public_paths = {
+        "/",  # root should be public (redirects to docs)
         "/api/v1/health",
         "/api/v1/livez",
         "/api/v1/readyz",

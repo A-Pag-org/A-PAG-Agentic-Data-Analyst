@@ -22,9 +22,25 @@ def _is_public_request(request: Request) -> bool:
         "/api/v1/livez",
         "/api/v1/readyz",
         "/api/v1/metrics",  # Prometheus metrics (if enabled)
+        "/favicon.ico",
+        "/docs",
+        "/redoc",
     }
 
-    return method in {"GET", "HEAD"} and path in public_paths
+    # Allow OpenAPI schema and docs assets
+    if method in {"GET", "HEAD"}:
+        if path in public_paths:
+            return True
+        if path.startswith("/openapi.json"):
+            return True
+        # FastAPI docs static
+        if path.startswith("/docs") or path.startswith("/redoc"):
+            return True
+        # Common static mount (if any)
+        if path.startswith("/static/"):
+            return True
+
+    return False
 
 async def verify_request_authentication(request: Request) -> None:
     # Allow-list public endpoints regardless of environment

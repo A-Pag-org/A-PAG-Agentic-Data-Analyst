@@ -59,6 +59,10 @@ def main():
         if 'envVars' in service:
             print(f"     └─ Environment Variables:")
             for var in service['envVars']:
+                if 'fromGroup' in var and isinstance(var['fromGroup'], dict):
+                    grp = var['fromGroup']
+                    print(f"        ├─ ← Group:{grp.get('name')}")
+                    continue
                 key = var['key']
                 if 'value' in var:
                     print(f"        ├─ {key} = {var['value']}")

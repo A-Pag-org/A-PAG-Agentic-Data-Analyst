@@ -105,10 +105,16 @@ def test_backend_configuration(data):
             if env_var.get('key') == 'DATABASE_URL':
                 has_database_url = True
     
+    # Accept either service-level envVarGroups or envVars with fromGroup
     if 'envVarGroups' in backend:
         for group_name in backend['envVarGroups']:
             if group_name == 'shared-auth':
                 has_auth_token = True
+    if 'envVars' in backend and not has_auth_token:
+        for env_var in backend['envVars']:
+            if 'fromGroup' in env_var and isinstance(env_var['fromGroup'], dict):
+                if env_var['fromGroup'].get('name') == 'shared-auth':
+                    has_auth_token = True
     
     if not has_environment:
         checks.append("Backend missing ENVIRONMENT variable")
@@ -251,6 +257,12 @@ def test_environment_variable_groups(data):
     for service in services:
         if 'envVarGroups' in service:
             used_groups.update(service['envVarGroups'])
+        if 'envVars' in service:
+            for env_var in service['envVars']:
+                if 'fromGroup' in env_var and isinstance(env_var['fromGroup'], dict):
+                    name = env_var['fromGroup'].get('name')
+                    if name:
+                        used_groups.add(name)
     
     unused_groups = group_names - used_groups
     

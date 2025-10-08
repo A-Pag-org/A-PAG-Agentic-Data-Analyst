@@ -121,8 +121,16 @@ def test_services(data):
         # Check environment variables
         if 'envVars' in service:
             for var in service['envVars']:
+                # Support either key-based env var or fromGroup (which has no 'key')
+                if 'fromGroup' in var:
+                    grp = var['fromGroup']
+                    if not isinstance(grp, dict) or 'name' not in grp:
+                        print(f"  ✗ Service '{service['name']}' has invalid fromGroup reference")
+                        return False
+                    continue
+
                 if 'key' not in var:
-                    print(f"  ✗ Service '{service['name']}' has envVar without 'key'")
+                    print(f"  ✗ Service '{service['name']}' has envVar without 'key' (and not fromGroup)")
                     return False
                 
                 # Check that envVar has a value source

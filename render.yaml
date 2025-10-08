@@ -15,8 +15,6 @@ services:
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health
     autoDeploy: true
-    envVarGroups:
-      - shared-auth
     envVars:
       - key: ENVIRONMENT
         value: production
@@ -24,6 +22,8 @@ services:
         fromDatabase:
           name: ai-db
           property: connectionString
+      - fromGroup:
+          name: shared-auth
 
   - type: web
     name: ai-frontend
@@ -33,8 +33,6 @@ services:
     buildCommand: npm ci && npm run build
     startCommand: npm run start
     autoDeploy: true
-    envVarGroups:
-      - shared-auth
     envVars:
       - key: BACKEND_URL
         fromService:
@@ -46,6 +44,8 @@ services:
           name: ai-backend
           type: web
           property: url
+      - fromGroup:
+          name: shared-auth
 
 databases:
   - name: ai-db

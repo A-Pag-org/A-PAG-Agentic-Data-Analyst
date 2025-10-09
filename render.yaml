@@ -31,8 +31,8 @@ services:
     plan: free
     rootDir: frontend
     buildCommand: npm ci && npm run build
-    startCommand: npm run start
-    healthCheckPath: /api/health
+    startCommand: npm run start -- -H 0.0.0.0 -p $PORT
+    healthCheckPath: /
     autoDeploy: true
     envVars:
       - key: BACKEND_URL

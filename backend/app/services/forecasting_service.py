@@ -7,12 +7,11 @@ from typing import Any, Dict, Optional, Tuple, List
 import numpy as np
 import pandas as pd
 
+# Lazy/optional import: avoid failing at module import time
 try:
     from prophet import Prophet  # type: ignore
-except Exception as exc:  # pragma: no cover - import-time guard
-    raise RuntimeError(
-        "Prophet is not available. Ensure 'prophet' is installed in backend requirements."
-    ) from exc
+except Exception:  # pragma: no cover - optional dependency may be missing in some deployments
+    Prophet = None  # type: ignore
 
 
 class ForecastingService:
@@ -26,7 +25,17 @@ class ForecastingService:
         seasonality_mode: str = "additive",
         changepoint_prior_scale: float = 0.05,
     ):
-        self.prophet_model: Prophet = model or Prophet(
+        if model is not None:
+            self.prophet_model: Prophet = model
+            return
+
+        # Ensure Prophet is available before constructing the default model
+        if Prophet is None:  # type: ignore[truthy-bool]
+            raise RuntimeError(
+                "Prophet is not available. Install 'prophet' to enable forecasting endpoints."
+            )
+
+        self.prophet_model: Prophet = Prophet(  # type: ignore[call-arg]
             yearly_seasonality=yearly_seasonality,
             weekly_seasonality=weekly_seasonality,
             daily_seasonality=daily_seasonality,

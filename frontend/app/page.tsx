@@ -74,7 +74,14 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        let detail: any = undefined;
+        try {
+          detail = await response.json();
+        } catch {}
+        const message =
+          (detail && (detail.error || detail.detail?.error || detail.detail)) ||
+          `Upload failed with status ${response.status}`;
+        throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
       }
 
       const result = await response.json();

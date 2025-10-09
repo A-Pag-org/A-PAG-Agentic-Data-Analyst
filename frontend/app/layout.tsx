@@ -27,6 +27,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Only enable Vercel Web Analytics when running on Vercel.
+  // This avoids 404s for /_vercel/insights/script.js on other platforms.
+  const enableVercelAnalytics = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ANALYTICS_ID);
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
@@ -34,7 +37,7 @@ export default async function RootLayout({
         <Providers>
           <Navbar />
           {children}
-          {process.env.NODE_ENV === 'production' && <Analytics />}
+          {enableVercelAnalytics && <Analytics />}
         </Providers>
       </body>
     </html>

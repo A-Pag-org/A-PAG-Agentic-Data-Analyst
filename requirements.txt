@@ -4,3 +4,4 @@ requests>=2.32
 pandas>=2.2
 numpy>=1.26
 vega-datasets>=0.9
+openpyxl>=3.1

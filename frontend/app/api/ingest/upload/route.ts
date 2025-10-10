@@ -59,6 +59,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    const cause: unknown = (err as any)?.cause;
+    const causeInfo =
+      cause && typeof cause === 'object'
+        ? {
+            code: (cause as any).code,
+            hostname: (cause as any).hostname,
+            port: (cause as any).port,
+            address: (cause as any).address,
+          }
+        : undefined;
+
+    // When fetch fails to connect, return 502 with helpful diagnostics
+    return NextResponse.json(
+      {
+        error: 'Failed to reach backend',
+        detail: { message, cause: causeInfo },
+        backend: getBackendBaseUrl(),
+        hint:
+          'Ensure BACKEND_URL or NEXT_PUBLIC_BACKEND_URL points to your backend and it is reachable from the frontend environment.',
+      },
+      { status: 502 }
+    );
   }
 }

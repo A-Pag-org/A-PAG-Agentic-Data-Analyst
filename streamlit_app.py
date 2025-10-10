@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 from io import BytesIO
+import re
+import difflib
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypedDict, Tuple
 
@@ -137,6 +139,7 @@ class AppState(TypedDict, total=False):
     analysis_answer: str
     analysis_plan: Dict[str, Any]
     analysis_table: Dict[str, Any]
+    analysis_logs: List[str]
     chart_spec: Dict[str, Any]
     final_answer: str
 
@@ -238,6 +241,7 @@ def analysis_agent(state: AppState) -> AppState:
             table_cols = [str(c) for c in result_df.columns.tolist()]
             table_rows = result_df.head(500).to_dict(orient="records")
             state["analysis_table"] = {"columns": table_cols, "rows": table_rows}
+            state["analysis_logs"] = logs
             return state
     except Exception:
         # Fall back to pandas agent below
@@ -286,10 +290,22 @@ def _generate_analysis_plan(llm: ChatOpenAI, df: pd.DataFrame, query: str) -> Di
                                 "rename",
                                 "pivot",
                                 "limit",
+                                "dropna",
+                                "fillna",
+                                "cast",
+                                "date_parse",
+                                "date_trunc",
+                                "window_rank",
+                                "cumsum",
+                                "pct_change",
+                                "value_counts",
+                                "dedupe",
+                                "sample",
                             ],
                         },
                         "conditions": {"type": "array"},
                         "columns": {"type": "array"},
+                        "column": {"type": "string"},
                         "by": {"type": "array"},
                         "aggregations": {"type": "array"},
                         "ascending": {"type": ["boolean", "array"]},
@@ -304,6 +320,17 @@ def _generate_analysis_plan(llm: ChatOpenAI, df: pd.DataFrame, query: str) -> Di
                         "aggfunc": {"type": ["string", "array"]},
                         "fill_value": {},
                         "n": {"type": "integer"},
+                        "subset": {"type": ["string", "array"]},
+                        "how": {"type": "string", "enum": ["any", "all"]},
+                        "value": {},
+                        "types": {"type": "object"},
+                        "freq": {"type": "string", "enum": ["day", "week", "month", "quarter", "year"]},
+                        "partition_by": {"type": ["string", "array"]},
+                        "rank_column": {"type": "string"},
+                        "periods": {"type": "integer"},
+                        "normalize": {"type": "boolean"},
+                        "frac": {"type": "number"},
+                        "random_state": {"type": ["integer", "null"]},
                     },
                     "required": ["op"],
                     "additionalProperties": True,
@@ -345,7 +372,18 @@ def _resolve_column(df: pd.DataFrame, name: str) -> Optional[str]:
         return name
     # case-insensitive fallback
     lowered = {str(c).lower(): str(c) for c in df.columns}
-    return lowered.get(str(name).lower())
+    ci = lowered.get(str(name).lower())
+    if ci:
+        return ci
+    # fuzzy match fallback
+    candidates = [str(c) for c in df.columns]
+    lowered_candidates = [c.lower() for c in candidates]
+    import difflib as _difflib
+    matches = _difflib.get_close_matches(str(name).lower(), lowered_candidates, n=1, cutoff=0.8)
+    if matches:
+        idx = lowered_candidates.index(matches[0])
+        return candidates[idx]
+    return None
 
 
 def _as_number(value: Any) -> Any:
@@ -362,8 +400,65 @@ def _as_number(value: Any) -> Any:
         return value
 
 
-def _execute_analysis_plan(df: pd.DataFrame, plan: Dict[str, Any]) -> Tuple[pd.DataFrame, List[str]]:
+def _smart_coerce_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     working = df.copy()
+    # Try to coerce common numeric formats and dates
+    for col in list(working.columns):
+        series = working[col]
+        if pd.api.types.is_object_dtype(series):
+            # numeric-like strings: remove currency, commas, percent
+            cleaned = series.astype(str).str.replace(r"[,$]", "", regex=True).str.replace("%", "", regex=False)
+            coerced = pd.to_numeric(cleaned, errors="coerce")
+            non_na_ratio = float(coerced.notna().mean()) if len(coerced) else 0.0
+            if non_na_ratio > 0.6:
+                working[col] = coerced
+                continue
+            # date-like by name
+            import re as _re
+            if _re.search(r"date|time|timestamp", str(col), flags=_re.I):
+                try:
+                    working[col] = pd.to_datetime(series, errors="coerce")
+                except Exception:
+                    pass
+    return working
+
+
+def _parse_dtype(name: str):
+    t = str(name).lower()
+    if t in {"int", "int64", "integer"}:
+        return "int64"
+    if t in {"float", "float64", "double"}:
+        return "float64"
+    if t in {"str", "string", "text"}:
+        return "string"
+    if t in {"bool", "boolean"}:
+        return "boolean"
+    if t in {"datetime", "timestamp", "date"}:
+        return "datetime64[ns]"
+    return None
+
+
+def _date_trunc(series: pd.Series, freq: str) -> pd.Series:
+    f = freq.lower()
+    try:
+        s = pd.to_datetime(series, errors="coerce")
+        if f == "day":
+            return s.dt.floor("D")
+        if f == "week":
+            return s.dt.to_period("W").apply(lambda p: p.start_time)
+        if f == "month":
+            return s.dt.to_period("M").dt.to_timestamp()
+        if f == "quarter":
+            return s.dt.to_period("Q").dt.to_timestamp()
+        if f == "year":
+            return s.dt.to_period("Y").dt.to_timestamp()
+    except Exception:
+        pass
+    return series
+
+
+def _execute_analysis_plan(df: pd.DataFrame, plan: Dict[str, Any]) -> Tuple[pd.DataFrame, List[str]]:
+    working = _smart_coerce_dataframe(df)
     logs: List[str] = []
 
     def log(msg: str) -> None:
@@ -518,6 +613,146 @@ def _execute_analysis_plan(df: pd.DataFrame, plan: Dict[str, Any]) -> Tuple[pd.D
             n = int(step.get("n", 10))
             working = working.head(n)
             log(f"limit {n}")
+
+        elif op == "dropna":
+            subset = step.get("subset")
+            how = step.get("how", "any")
+            try:
+                working = working.dropna(subset=subset, how=how)
+                log(f"dropna subset={subset} how={how}")
+            except Exception:
+                pass
+
+        elif op == "fillna":
+            value = step.get("value")
+            try:
+                if isinstance(value, dict):
+                    working = working.fillna(value)
+                else:
+                    working = working.fillna(value)
+                log("fillna applied")
+            except Exception:
+                pass
+
+        elif op == "cast":
+            types = step.get("types") or {}
+            try:
+                for k, v in list(types.items()):
+                    col = _resolve_column(working, str(k))
+                    if not col:
+                        continue
+                    target = _parse_dtype(v)
+                    if target == "datetime64[ns]":
+                        working[col] = pd.to_datetime(working[col], errors="coerce")
+                    elif target:
+                        working[col] = working[col].astype(target, errors="ignore")
+                log(f"cast columns {types}")
+            except Exception:
+                pass
+
+        elif op == "date_parse":
+            columns = step.get("columns") or []
+            for c in columns:
+                col = _resolve_column(working, str(c))
+                if col:
+                    try:
+                        working[col] = pd.to_datetime(working[col], errors="coerce")
+                    except Exception:
+                        pass
+            log(f"date_parse {columns}")
+
+        elif op == "date_trunc":
+            column = _resolve_column(working, str(step.get("column"))) if step.get("column") else None
+            freq = step.get("freq", "month")
+            if column and column in working.columns:
+                working[column] = _date_trunc(working[column], str(freq))
+                log(f"date_trunc {column} freq={freq}")
+
+        elif op == "window_rank":
+            by = _resolve_column(working, str(step.get("by"))) if step.get("by") else None
+            partition_by = step.get("partition_by")
+            if isinstance(partition_by, str):
+                partition_by = [partition_by]
+            partition_resolved = [c for c in (partition_by or []) if _resolve_column(working, str(c))]
+            partition_resolved = [ _resolve_column(working, str(c)) for c in partition_resolved ]
+            partition_resolved = [ c for c in partition_resolved if c ]
+            rank_col = str(step.get("rank_column") or "rank")
+            ascending = bool(step.get("ascending", False))
+            try:
+                if by and by in working.columns:
+                    if partition_resolved:
+                        working[rank_col] = working.sort_values(by=by, ascending=ascending).groupby(partition_resolved)[by].rank(method="dense", ascending=ascending)
+                    else:
+                        working[rank_col] = working[by].rank(method="dense", ascending=ascending)
+                    log(f"window_rank on {by} partition_by={partition_resolved}")
+            except Exception:
+                pass
+
+        elif op == "cumsum":
+            column = _resolve_column(working, str(step.get("column"))) if step.get("column") else None
+            new_col = str(step.get("new_column") or f"{column}_cumsum")
+            by = step.get("by")
+            if isinstance(by, str):
+                by = [by]
+            by_resolved = [ _resolve_column(working, str(c)) for c in (by or []) ]
+            by_resolved = [ c for c in by_resolved if c ]
+            try:
+                if column and by_resolved:
+                    working[new_col] = working.groupby(by_resolved)[column].cumsum()
+                elif column:
+                    working[new_col] = working[column].cumsum()
+                log(f"cumsum for {column} by={by_resolved}")
+            except Exception:
+                pass
+
+        elif op == "pct_change":
+            column = _resolve_column(working, str(step.get("column"))) if step.get("column") else None
+            new_col = str(step.get("new_column") or f"{column}_pct_change")
+            periods = int(step.get("periods", 1))
+            by = step.get("by")
+            if isinstance(by, str):
+                by = [by]
+            by_resolved = [ _resolve_column(working, str(c)) for c in (by or []) ]
+            by_resolved = [ c for c in by_resolved if c ]
+            try:
+                if column and by_resolved:
+                    working[new_col] = working.groupby(by_resolved)[column].pct_change(periods=periods)
+                elif column:
+                    working[new_col] = working[column].pct_change(periods=periods)
+                log(f"pct_change for {column} by={by_resolved} periods={periods}")
+            except Exception:
+                pass
+
+        elif op == "value_counts":
+            column = _resolve_column(working, str(step.get("column"))) if step.get("column") else None
+            normalize = bool(step.get("normalize", False))
+            top = int(step.get("k", 20))
+            if column and column in working.columns:
+                vc = working[column].value_counts(normalize=normalize).head(top)
+                working = vc.reset_index().rename(columns={"index": str(column), column: "count"})
+                log(f"value_counts {column} normalize={normalize} top={top}")
+
+        elif op == "dedupe":
+            subset = step.get("subset")
+            keep = step.get("keep", "first")
+            try:
+                working = working.drop_duplicates(subset=subset, keep=keep)
+                log(f"dedupe subset={subset} keep={keep}")
+            except Exception:
+                pass
+
+        elif op == "sample":
+            n = step.get("n")
+            frac = step.get("frac")
+            random_state = step.get("random_state")
+            try:
+                if n is not None:
+                    working = working.sample(n=int(n), random_state=random_state)
+                elif frac is not None:
+                    working = working.sample(frac=float(frac), random_state=random_state)
+                log(f"sample n={n} frac={frac}")
+            except Exception:
+                pass
 
         else:
             # Unknown op: skip
@@ -824,6 +1059,12 @@ if run:
         if retrieved_text:
             with st.expander("Retrieved context", expanded=False):
                 st.code(retrieved_text[:8000])
+
+        # Show analysis logs if present
+        analysis_logs = result.get("analysis_logs")
+        if isinstance(analysis_logs, list) and analysis_logs:
+            with st.expander("Analysis steps", expanded=False):
+                st.code("\n".join(str(x) for x in analysis_logs))
 
     except Exception as exc:
         st.error(f"Run failed: {exc}")

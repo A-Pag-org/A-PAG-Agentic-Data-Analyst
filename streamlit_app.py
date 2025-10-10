@@ -31,19 +31,42 @@ def _get_secret(key: str, default: Optional[str] = None) -> Optional[str]:
     return os.getenv(key, default)
 
 
+def normalize_base_url(raw_value: Optional[str]) -> str:
+    """Return a normalized base URL with a scheme and no trailing slash.
+
+    - Adds https:// when missing (http:// for localhost/127.0.0.1/0.0.0.0 or when a port is present)
+    - Falls back to http://localhost:8000 when empty
+    - Strips surrounding whitespace and trailing slashes
+    """
+    value = (raw_value or "").strip()
+    if not value:
+        return "http://localhost:8000"
+    if value.startswith(("http://", "https://")):
+        normalized = value
+    elif value.startswith("//"):
+        normalized = f"https:{value}"
+    else:
+        is_local_like = value.startswith(("localhost", "127.0.0.1", "0.0.0.0"))
+        has_port = ":" in value and not value.startswith("http")
+        default_scheme = "http://" if (is_local_like or has_port) else "https://"
+        normalized = f"{default_scheme}{value}"
+    return normalized.rstrip("/")
+
+
 def get_backend_config() -> Tuple[str, Optional[str]]:
     # Prefer session state, then env/secrets in this order: BACKEND_URL, NEXT_PUBLIC_BACKEND_URL
-    detected_backend = (
+    detected_backend_raw = (
         st.session_state.get("backend_url")
         or _get_secret("BACKEND_URL", None)
         or _get_secret("NEXT_PUBLIC_BACKEND_URL", None)
         or "http://localhost:8000"
     )
+    detected_backend = normalize_base_url(str(detected_backend_raw))
     auth_token = st.session_state.get(
         "auth_bearer_token",
         _get_secret("AUTH_BEARER_TOKEN", None),
     )
-    return str(detected_backend).rstrip("/"), auth_token
+    return detected_backend, auth_token
 
 
 # -------------------------
@@ -52,7 +75,11 @@ def get_backend_config() -> Tuple[str, Optional[str]]:
 
 class BackendClient:
     def __init__(self, base_url: str, bearer_token: Optional[str] = None):
-        self.base_url = base_url.rstrip("/")
+        # Guard against invalid base URLs without scheme
+        normalized = normalize_base_url(base_url)
+        if "://" not in normalized:
+            raise ValueError("Invalid base_url: missing URL scheme (http:// or https://)")
+        self.base_url = normalized.rstrip("/")
         self.bearer_token = bearer_token
 
     def _headers(self) -> Dict[str, str]:

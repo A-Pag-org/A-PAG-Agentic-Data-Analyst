@@ -4,6 +4,12 @@ import base64
 import json
 import os
 from typing import Any, Dict, List, Optional, Tuple
+from io import BytesIO
+from datetime import datetime, timedelta
+
+import pandas as pd
+import numpy as np
+import altair as alt
 
 import requests
 from requests.exceptions import (
@@ -171,6 +177,15 @@ st.title("AI Data Analytics Platform — Streamlit UI")
 
 # Sidebar configuration
 with st.sidebar:
+    st.header("Mode")
+    mode = st.radio(
+        "Run mode",
+        options=["Demo (no backend)", "Backend API"],
+        index=0,
+        help="Demo mode runs everything locally on Streamlit Cloud without any external backend.",
+    )
+
+    st.divider()
     st.header("Backend Settings")
     default_backend, default_token = get_backend_config()
     backend_url = st.text_input(
@@ -178,8 +193,14 @@ with st.sidebar:
         value=default_backend,
         placeholder="https://your-backend.example.com",
         help="Enter the origin only (e.g. https://api.example.com). Do NOT include /api or /api/v1.",
+        disabled=(mode == "Demo (no backend)"),
     )
-    auth_bearer_token = st.text_input("Auth Bearer Token", value=default_token or "", type="password")
+    auth_bearer_token = st.text_input(
+        "Auth Bearer Token",
+        value=default_token or "",
+        type="password",
+        disabled=(mode == "Demo (no backend)"),
+    )
     user_id = st.text_input("User ID", value=st.session_state.get("user_id", "streamlit_user"))
 
     # Persist to session state
@@ -187,19 +208,160 @@ with st.sidebar:
     st.session_state["auth_bearer_token"] = auth_bearer_token or None
     st.session_state["user_id"] = user_id
 
-    client = BackendClient(backend_url, bearer_token=(auth_bearer_token or None))
-
-    # Simple connectivity check (health endpoint is public)
-    if st.button("Test Connection"):
-        try:
-            health = client.get("/api/v1/health")
-            st.success(f"Health: {health}")
-        except Exception as exc:
-            st.error(f"Connection failed: {exc}")
+    client: Optional[BackendClient] = None
+    if mode == "Backend API":
+        client = BackendClient(backend_url, bearer_token=(auth_bearer_token or None))
+        if st.button("Test Connection"):
+            try:
+                health = client.get("/api/v1/health")
+                st.success(f"Health: {health}")
+            except Exception as exc:
+                st.error(f"Connection failed: {exc}")
 
 # Maintain conversation session id across runs
 if "session_id" not in st.session_state:
     st.session_state["session_id"] = None
+if "latest_df" not in st.session_state:
+    st.session_state["latest_df"] = None
+if "latest_name" not in st.session_state:
+    st.session_state["latest_name"] = None
+
+
+# -------------------------
+# Demo/local helpers
+# -------------------------
+
+def _read_uploaded_to_dataframe(uploaded_file) -> pd.DataFrame:
+    name = (uploaded_file.name or "uploaded").lower()
+    data = uploaded_file.getvalue()
+    if name.endswith(".csv"):
+        return pd.read_csv(BytesIO(data))
+    if name.endswith(".xlsx") or name.endswith(".xls"):
+        return pd.read_excel(BytesIO(data))
+    if name.endswith(".json"):
+        try:
+            return pd.read_json(BytesIO(data))
+        except ValueError:
+            # Try json lines
+            return pd.read_json(BytesIO(data), lines=True)
+    # Fallback: try csv
+    return pd.read_csv(BytesIO(data))
+
+
+def _summarize_dataframe(df: pd.DataFrame) -> str:
+    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    cat_cols = [c for c in df.columns if c not in num_cols]
+    parts: List[str] = []
+    parts.append(f"Rows: {len(df):,}; Columns: {len(df.columns)}")
+    if num_cols:
+        parts.append(f"Numeric columns: {', '.join(num_cols[:6])}{'…' if len(num_cols) > 6 else ''}")
+    if cat_cols:
+        parts.append(f"Other columns: {', '.join(cat_cols[:6])}{'…' if len(cat_cols) > 6 else ''}")
+    return " | ".join(parts)
+
+
+def _simple_topn_chart(df: pd.DataFrame, n: int = 5) -> alt.Chart:
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    if not numeric_cols:
+        # Create a dummy empty chart
+        empty = pd.DataFrame({"label": [], "value": []})
+        return alt.Chart(empty).mark_bar().encode(x="label", y="value")
+    # Pick first numeric column for simplicity
+    col = numeric_cols[0]
+    agg = (
+        df[[col]]
+        .assign(index=lambda d: d.index.astype(str))
+        .nlargest(n, col)
+        .rename(columns={col: "value"})
+        .reset_index(drop=False)
+        .rename(columns={"index": "label"})
+    )
+    return (
+        alt.Chart(agg)
+        .mark_bar()
+        .encode(x=alt.X("label:N", sort="-y"), y="value:Q")
+        .properties(height=300)
+    )
+
+
+def _generate_future_dates(start: datetime, periods: int, freq: str) -> List[datetime]:
+    mapping = {
+        "D": lambda i: start + timedelta(days=i),
+        "W": lambda i: start + timedelta(weeks=i),
+        "M": None,  # handled separately
+        "Q": None,
+        "Y": None,
+    }
+    if freq in mapping and mapping[freq] is not None:
+        return [mapping[freq](i + 1) for i in range(periods)]
+    # Month/Quarter/Year handling
+    dates = []
+    current = start
+    for _ in range(periods):
+        if freq == "M":
+            year = current.year + (current.month // 12)
+            month = (current.month % 12) + 1
+            day = min(current.day, 28)
+            current = datetime(year, month, day)
+        elif freq == "Q":
+            # advance 3 months
+            month = current.month + 3
+            year = current.year + (month - 1) // 12
+            month = ((month - 1) % 12) + 1
+            day = min(current.day, 28)
+            current = datetime(year, month, day)
+        elif freq == "Y":
+            current = datetime(current.year + 1, current.month, min(current.day, 28))
+        else:
+            current = current + timedelta(days=1)
+        dates.append(current)
+    return dates
+
+
+def _demo_forecast_from_dataframe(
+    df: pd.DataFrame,
+    target_column: str,
+    date_column: Optional[str],
+    periods: int,
+    freq: str,
+) -> Dict[str, Any]:
+    if date_column and date_column in df.columns:
+        ds = pd.to_datetime(df[date_column], errors="coerce")
+    else:
+        # Use integer index as time
+        ds = pd.to_datetime(pd.RangeIndex(start=0, stop=len(df), step=1), unit="D", origin="unix")
+    y = pd.to_numeric(df[target_column], errors="coerce")
+    valid = (~ds.isna()) & (~y.isna())
+    ds = ds[valid]
+    y = y[valid]
+    if len(y) < 3:
+        raise ValueError("Not enough valid rows to forecast. Need at least 3.")
+
+    # Simple linear trend via polyfit on index positions
+    x = np.arange(len(y))
+    coefs = np.polyfit(x, y.values, deg=1)
+    trend = np.poly1d(coefs)
+
+    # Forecast future points
+    future_x = np.arange(len(y), len(y) + periods)
+    yhat = trend(future_x)
+
+    last_date = pd.to_datetime(ds.iloc[-1])
+    future_dates = _generate_future_dates(last_date, periods, freq)
+
+    history_df = pd.DataFrame({"ds": ds.values, "y": y.values})
+    forecast_df = pd.DataFrame({"ds": future_dates, "yhat": yhat})
+
+    base = alt.Chart(history_df).mark_line(color="#1f77b4").encode(x="ds:T", y="y:Q")
+    future = alt.Chart(forecast_df).mark_line(color="#ff7f0e").encode(x="ds:T", y="yhat:Q")
+    chart = (base + future).properties(height=300, width="container")
+
+    return {
+        "history": history_df.to_dict(orient="records"),
+        "forecast": forecast_df.to_dict(orient="records"),
+        "chart": chart,
+        "metrics": {"method": "linear_trend", "n_history": int(len(history_df)), "periods": int(periods)},
+    }
 
 
 # Tabs for main flows
@@ -209,59 +371,71 @@ upload_tab, ask_tab, search_tab, forecast_tab = st.tabs(["Upload", "Ask", "Searc
 with upload_tab:
     st.subheader("Upload Data")
     st.caption("Supported: CSV, Excel (xlsx), JSON")
-    uploaded = st.file_uploader("Choose a file", type=["csv", "xlsx", "json"]) 
+    uploaded = st.file_uploader("Choose a file", type=["csv", "xlsx", "json"])
     dataset_id = st.text_input("Dataset ID (optional)", value="")
     if st.button("Upload", disabled=(uploaded is None)):
         if uploaded is None:
             st.warning("Please select a file first.")
         else:
-            try:
-                # Quick reachability check before attempting upload
+            if mode == "Backend API":
                 try:
-                    client.get("/api/v1/health")
-                except Exception as health_exc:
-                    st.error(
-                        f"Backend not reachable at '{backend_url}'. "
-                        f"Update 'Backend URL' in the sidebar or start the backend. Details: {health_exc}"
-                    )
-                    raise
-
-                file_bytes = uploaded.getvalue()
-                content_type = uploaded.type or "application/octet-stream"
-                files = {
-                    "file": (uploaded.name, file_bytes, content_type),
-                }
-                data = {
-                    "user_id": user_id,
-                }
-                if dataset_id.strip():
-                    data["dataset_id"] = dataset_id.strip()
-                result = client.post_multipart("/api/v1/ingest/upload", files=files, data=data)
-                st.success("Upload succeeded.")
-                st.json(result)
-            except RequestsConnectionError as exc:
-                st.error(
-                    f"Upload failed: cannot connect to backend at '{backend_url}'. "
-                    f"Ensure the backend is running and the URL is correct. Details: {exc}"
-                )
-            except HTTPError as exc:
-                status = getattr(exc.response, "status_code", "")
-                detail: Any = None
-                if getattr(exc, "response", None) is not None:
+                    # Quick reachability check before attempting upload
                     try:
-                        detail = exc.response.json()
-                    except Exception:
+                        assert client is not None
+                        client.get("/api/v1/health")
+                    except Exception as health_exc:
+                        st.error(
+                            f"Backend not reachable at '{backend_url}'. "
+                            f"Update 'Backend URL' in the sidebar or start the backend. Details: {health_exc}"
+                        )
+                        raise
+
+                    file_bytes = uploaded.getvalue()
+                    content_type = uploaded.type or "application/octet-stream"
+                    files = {
+                        "file": (uploaded.name, file_bytes, content_type),
+                    }
+                    data = {
+                        "user_id": user_id,
+                    }
+                    if dataset_id.strip():
+                        data["dataset_id"] = dataset_id.strip()
+                    result = client.post_multipart("/api/v1/ingest/upload", files=files, data=data)
+                    st.success("Upload succeeded.")
+                    st.json(result)
+                except RequestsConnectionError as exc:
+                    st.error(
+                        f"Upload failed: cannot connect to backend at '{backend_url}'. "
+                        f"Ensure the backend is running and the URL is correct. Details: {exc}"
+                    )
+                except HTTPError as exc:
+                    status = getattr(exc.response, "status_code", "")
+                    detail: Any = None
+                    if getattr(exc, "response", None) is not None:
                         try:
-                            detail = exc.response.text
+                            detail = exc.response.json()
                         except Exception:
-                            detail = None
-                st.error(
-                    f"Upload failed: HTTP {status} {detail if detail else ''}".strip()
-                )
-            except RequestException as exc:
-                st.error(f"Upload failed due to network error: {exc}")
-            except Exception as exc:
-                st.error(f"Upload failed: {exc}")
+                            try:
+                                detail = exc.response.text
+                            except Exception:
+                                detail = None
+                    st.error(
+                        f"Upload failed: HTTP {status} {detail if detail else ''}".strip()
+                    )
+                except RequestException as exc:
+                    st.error(f"Upload failed due to network error: {exc}")
+                except Exception as exc:
+                    st.error(f"Upload failed: {exc}")
+            else:
+                try:
+                    df = _read_uploaded_to_dataframe(uploaded)
+                    st.session_state["latest_df"] = df
+                    st.session_state["latest_name"] = dataset_id.strip() or (uploaded.name or "dataset")
+                    st.success("File loaded into session.")
+                    st.write(_summarize_dataframe(df))
+                    st.dataframe(df.head(20))
+                except Exception as exc:
+                    st.error(f"Failed to read file: {exc}")
 
 
 with ask_tab:
@@ -276,37 +450,50 @@ with ask_tab:
         keep_history = st.checkbox("Keep conversation history", value=True)
 
     if st.button("Analyze"):
-        try:
-            payload = {
-                "user_id": user_id,
-                "query": question,
-                "visualize": bool(visualize),
-                "forecast": bool(forecast_flag),
-                "session_id": st.session_state.get("session_id") if keep_history else None,
-            }
-            resp = client.post_json("/api/v1/agents/analyze", payload)
+        if mode == "Backend API":
+            try:
+                payload = {
+                    "user_id": user_id,
+                    "query": question,
+                    "visualize": bool(visualize),
+                    "forecast": bool(forecast_flag),
+                    "session_id": st.session_state.get("session_id") if keep_history else None,
+                }
+                assert client is not None
+                resp = client.post_json("/api/v1/agents/analyze", payload)
 
-            # Persist session id if provided
-            maybe_session_id = resp.get("session_id") or resp.get("data", {}).get("session_id")
-            if maybe_session_id:
-                st.session_state["session_id"] = maybe_session_id
+                # Persist session id if provided
+                maybe_session_id = resp.get("session_id") or resp.get("data", {}).get("session_id")
+                if maybe_session_id:
+                    st.session_state["session_id"] = maybe_session_id
 
-            st.markdown(f"**Answer:** {resp.get('answer','')}")
-            explanation = resp.get("explanation")
-            if explanation:
-                st.markdown("**Explanation:**")
-                st.write(explanation)
+                st.markdown(f"**Answer:** {resp.get('answer','')}")
+                explanation = resp.get("explanation")
+                if explanation:
+                    st.markdown("**Explanation:**")
+                    st.write(explanation)
 
-            viz_spec = resp.get("visualization_spec")
-            if viz_spec:
-                st.markdown("**Suggested Visualization:**")
-                show_visualization(viz_spec)
+                viz_spec = resp.get("visualization_spec")
+                if viz_spec:
+                    st.markdown("**Suggested Visualization:**")
+                    show_visualization(viz_spec)
 
-            sources = resp.get("sources") or []
-            st.markdown("**Sources:**")
-            show_sources(sources)
-        except Exception as exc:
-            st.error(f"Analyze failed: {exc}")
+                sources = resp.get("sources") or []
+                st.markdown("**Sources:**")
+                show_sources(sources)
+            except Exception as exc:
+                st.error(f"Analyze failed: {exc}")
+        else:
+            df: Optional[pd.DataFrame] = st.session_state.get("latest_df")
+            if df is None or df.empty:
+                st.info("Upload a dataset in the Upload tab to analyze in Demo mode.")
+            else:
+                answer = _summarize_dataframe(df)
+                st.markdown(f"**Answer:** {answer}")
+                if visualize:
+                    st.markdown("**Suggested Visualization:** Top values of first numeric column")
+                    chart = _simple_topn_chart(df, n=5)
+                    st.altair_chart(chart, use_container_width=True)
 
 
 with search_tab:
@@ -315,21 +502,37 @@ with search_tab:
     n_cols = st.columns(2)
     with n_cols[0]:
         if st.button("Search"):
-            try:
-                params = {"user_id": user_id, "q": q}
-                result = client.get("/api/v1/search/query", params=params)
-                st.markdown(f"**Answer:** {result.get('answer','')}")
-                st.markdown("**Sources:**")
-                show_sources(result.get("source_nodes") or [])
-            except Exception as exc:
-                st.error(f"Search failed: {exc}")
+            if mode == "Backend API":
+                try:
+                    params = {"user_id": user_id, "q": q}
+                    assert client is not None
+                    result = client.get("/api/v1/search/query", params=params)
+                    st.markdown(f"**Answer:** {result.get('answer','')}")
+                    st.markdown("**Sources:**")
+                    show_sources(result.get("source_nodes") or [])
+                except Exception as exc:
+                    st.error(f"Search failed: {exc}")
+            else:
+                df: Optional[pd.DataFrame] = st.session_state.get("latest_df")
+                if df is None or df.empty:
+                    st.info("Upload a dataset in the Upload tab to search in Demo mode.")
+                else:
+                    mask = pd.Series(False, index=df.index)
+                    for col in df.columns:
+                        try:
+                            mask = mask | df[col].astype(str).str.contains(q, case=False, na=False)
+                        except Exception:
+                            continue
+                    results = df[mask]
+                    st.markdown(f"**Matches:** {len(results)} rows")
+                    st.dataframe(results.head(50))
 
 
 with forecast_tab:
     st.subheader("Forecast from File or JSON")
-    mode = st.radio("Input Mode", options=["From File", "From JSON"], horizontal=True)
+    input_mode = st.radio("Input Mode", options=["From File", "From JSON"], horizontal=True)
 
-    if mode == "From File":
+    if input_mode == "From File":
         f = st.file_uploader("Upload timeseries file", type=["csv", "xlsx", "json"], key="forecast_file")
         target_column = st.text_input("Target column (numeric)", value="y")
         date_column = st.text_input("Date column (optional)", value="")
@@ -339,31 +542,53 @@ with forecast_tab:
             if f is None:
                 st.warning("Please upload a file.")
             else:
-                try:
-                    file_bytes = f.getvalue()
-                    files = {"file": (f.name, file_bytes, f.type or "application/octet-stream")}
-                    data = {
-                        "target_column": target_column,
-                        "periods": int(periods),
-                        "freq": freq,
-                    }
-                    if date_column.strip():
-                        data["date_column"] = date_column.strip()
-                    result = client.post_multipart("/api/v1/forecast/from-file", files=files, data=data)
+                if mode == "Backend API":
+                    try:
+                        file_bytes = f.getvalue()
+                        files = {"file": (f.name, file_bytes, f.type or "application/octet-stream")}
+                        data = {
+                            "target_column": target_column,
+                            "periods": int(periods),
+                            "freq": freq,
+                        }
+                        if date_column.strip():
+                            data["date_column"] = date_column.strip()
+                        assert client is not None
+                        result = client.post_multipart("/api/v1/forecast/from-file", files=files, data=data)
 
-                    st.success("Forecast generated.")
-                    meta = result.get("metadata") or {}
-                    st.json(meta)
-                    st.markdown("**Metrics:**")
-                    st.json(result.get("metrics") or {})
-                    st.markdown("**History sample:**")
-                    st.write((result.get("history") or [])[:10])
-                    st.markdown("**Forecast sample:**")
-                    st.write((result.get("forecast") or [])[:10])
+                        st.success("Forecast generated.")
+                        meta = result.get("metadata") or {}
+                        st.json(meta)
+                        st.markdown("**Metrics:**")
+                        st.json(result.get("metrics") or {})
+                        st.markdown("**History sample:**")
+                        st.write((result.get("history") or [])[:10])
+                        st.markdown("**Forecast sample:**")
+                        st.write((result.get("forecast") or [])[:10])
 
-                    show_forecast_plots(result.get("plot_png_base64"), result.get("components_png_base64"))
-                except Exception as exc:
-                    st.error(f"Forecast failed: {exc}")
+                        show_forecast_plots(result.get("plot_png_base64"), result.get("components_png_base64"))
+                    except Exception as exc:
+                        st.error(f"Forecast failed: {exc}")
+                else:
+                    try:
+                        df = _read_uploaded_to_dataframe(f)
+                        result = _demo_forecast_from_dataframe(
+                            df=df,
+                            target_column=target_column,
+                            date_column=date_column.strip() or None,
+                            periods=int(periods),
+                            freq=str(freq),
+                        )
+                        st.success("Forecast generated (demo mode).")
+                        st.markdown("**Metrics:**")
+                        st.json(result.get("metrics") or {})
+                        st.markdown("**History sample:**")
+                        st.write((result.get("history") or [])[:10])
+                        st.markdown("**Forecast sample:**")
+                        st.write((result.get("forecast") or [])[:10])
+                        st.altair_chart(result["chart"], use_container_width=True)
+                    except Exception as exc:
+                        st.error(f"Forecast failed: {exc}")
     else:
         st.caption("Paste JSON array of rows with date and target columns.")
         sample_json = [
@@ -377,25 +602,48 @@ with forecast_tab:
         periods = st.number_input("Periods", min_value=1, max_value=3650, value=30, key="json_periods")
         freq = st.selectbox("Frequency", ["D", "W", "M", "Q", "Y"], index=0, key="json_freq")
         if st.button("Run Forecast (JSON)"):
-            try:
-                rows = json.loads(raw)
-                payload = {
-                    "data": rows,
-                    "target_column": target_column,
-                    "date_column": date_column or None,
-                    "periods": int(periods),
-                    "freq": str(freq),
-                }
-                result = client.post_json("/api/v1/forecast/from-json", payload)
-                st.success("Forecast generated.")
-                meta = result.get("metadata") or {}
-                st.json(meta)
-                st.markdown("**Metrics:**")
-                st.json(result.get("metrics") or {})
-                st.markdown("**History sample:**")
-                st.write((result.get("history") or [])[:10])
-                st.markdown("**Forecast sample:**")
-                st.write((result.get("forecast") or [])[:10])
-                show_forecast_plots(result.get("plot_png_base64"), result.get("components_png_base64"))
-            except Exception as exc:
-                st.error(f"Forecast failed: {exc}")
+            if mode == "Backend API":
+                try:
+                    rows = json.loads(raw)
+                    payload = {
+                        "data": rows,
+                        "target_column": target_column,
+                        "date_column": date_column or None,
+                        "periods": int(periods),
+                        "freq": str(freq),
+                    }
+                    assert client is not None
+                    result = client.post_json("/api/v1/forecast/from-json", payload)
+                    st.success("Forecast generated.")
+                    meta = result.get("metadata") or {}
+                    st.json(meta)
+                    st.markdown("**Metrics:**")
+                    st.json(result.get("metrics") or {})
+                    st.markdown("**History sample:**")
+                    st.write((result.get("history") or [])[:10])
+                    st.markdown("**Forecast sample:**")
+                    st.write((result.get("forecast") or [])[:10])
+                    show_forecast_plots(result.get("plot_png_base64"), result.get("components_png_base64"))
+                except Exception as exc:
+                    st.error(f"Forecast failed: {exc}")
+            else:
+                try:
+                    rows = json.loads(raw)
+                    df = pd.DataFrame(rows)
+                    result = _demo_forecast_from_dataframe(
+                        df=df,
+                        target_column=target_column,
+                        date_column=(date_column or None),
+                        periods=int(periods),
+                        freq=str(freq),
+                    )
+                    st.success("Forecast generated (demo mode).")
+                    st.markdown("**Metrics:**")
+                    st.json(result.get("metrics") or {})
+                    st.markdown("**History sample:**")
+                    st.write((result.get("history") or [])[:10])
+                    st.markdown("**Forecast sample:**")
+                    st.write((result.get("forecast") or [])[:10])
+                    st.altair_chart(result["chart"], use_container_width=True)
+                except Exception as exc:
+                    st.error(f"Forecast failed: {exc}")

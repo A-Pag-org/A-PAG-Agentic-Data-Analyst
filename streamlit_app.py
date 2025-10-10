@@ -4,7 +4,7 @@ import json
 import os
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict, Tuple
 
 import pandas as pd
 import numpy as np
@@ -135,6 +135,8 @@ class AppState(TypedDict, total=False):
     # Intermediate artifacts
     retrieved_text: str
     analysis_answer: str
+    analysis_plan: Dict[str, Any]
+    analysis_table: Dict[str, Any]
     chart_spec: Dict[str, Any]
     final_answer: str
 
@@ -221,11 +223,28 @@ def analysis_agent(state: AppState) -> AppState:
     retrieved_text = "\n\n".join(d.page_content for d in docs) if docs else ""
     state["retrieved_text"] = retrieved_text
 
-    # Pandas agent over the DataFrame
+    # Attempt structured analysis plan first; fallback to pandas agent if needed
     df = pd.read_csv(data_path)
     llm = get_llm()
-    pandas_agent = create_pandas_dataframe_agent(llm, df, verbose=False, allow_dangerous_code=True)
 
+    try:
+        plan = _generate_analysis_plan(llm, df, query)
+        if plan and isinstance(plan, dict) and plan.get("steps"):
+            result_df, logs = _execute_analysis_plan(df, plan)
+            summary = _summarize_result(llm, result_df, query, logs)
+            state["analysis_answer"] = summary
+            # Store plan and a compact table for UI display
+            state["analysis_plan"] = plan
+            table_cols = [str(c) for c in result_df.columns.tolist()]
+            table_rows = result_df.head(500).to_dict(orient="records")
+            state["analysis_table"] = {"columns": table_cols, "rows": table_rows}
+            return state
+    except Exception:
+        # Fall back to pandas agent below
+        pass
+
+    # Fallback: Pandas agent over the DataFrame
+    pandas_agent = create_pandas_dataframe_agent(llm, df, verbose=False, allow_dangerous_code=True)
     analysis_prompt = (
         "Use the DataFrame to answer the user's question succinctly.\n"
         "When helpful, perform aggregations, filters, or computations.\n"
@@ -240,6 +259,300 @@ def analysis_agent(state: AppState) -> AppState:
 
     state["analysis_answer"] = str(answer)
     return state
+
+
+# -------------------------
+# Structured analysis planning & execution
+# -------------------------
+
+def _generate_analysis_plan(llm: ChatOpenAI, df: pd.DataFrame, query: str) -> Dict[str, Any]:
+    schema = {
+        "type": "object",
+        "properties": {
+            "steps": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "op": {
+                            "type": "string",
+                            "enum": [
+                                "filter",
+                                "select",
+                                "groupby_agg",
+                                "sort",
+                                "topk",
+                                "compute",
+                                "rename",
+                                "pivot",
+                                "limit",
+                            ],
+                        },
+                        "conditions": {"type": "array"},
+                        "columns": {"type": "array"},
+                        "by": {"type": "array"},
+                        "aggregations": {"type": "array"},
+                        "ascending": {"type": ["boolean", "array"]},
+                        "k": {"type": "integer"},
+                        "new_column": {"type": "string"},
+                        "operation": {"type": "string", "enum": ["add", "subtract", "multiply", "divide"]},
+                        "left": {"type": "object"},
+                        "right": {"type": "object"},
+                        "mapping": {"type": "object"},
+                        "index": {"type": ["string", "array"]},
+                        "values": {"type": ["string", "array"]},
+                        "aggfunc": {"type": ["string", "array"]},
+                        "fill_value": {},
+                        "n": {"type": "integer"},
+                    },
+                    "required": ["op"],
+                    "additionalProperties": True,
+                },
+            },
+            "explain": {"type": "string"},
+        },
+        "required": ["steps"],
+        "additionalProperties": True,
+    }
+
+    # Provide compact schema and metadata to the model
+    dtypes_map = {str(c): str(t) for c, t in df.dtypes.items()}
+    preview = df.head(10).to_dict(orient="records")
+    prompt = (
+        "You are a senior data analyst. Create a minimal JSON-only analysis plan\n"
+        "to answer the user's question on the given DataFrame. Use only the schema below.\n"
+        "Prefer simple, robust steps (filter, groupby_agg, sort, topk).\n"
+        "JSON schema: \n"
+        f"{json.dumps(schema)}\n"
+        f"DataFrame columns and dtypes: {json.dumps(dtypes_map)}\n"
+        f"Data preview (first 10 rows): {json.dumps(preview)[:4000]}\n"
+        f"Question: {query}\n"
+        "Return JSON only."
+    )
+    resp = llm.invoke(prompt)
+    content = getattr(resp, "content", "{}")
+    try:
+        start = content.find("{")
+        end = content.rfind("}")
+        plan = json.loads(content[start : end + 1]) if start != -1 and end != -1 else {}
+    except Exception:
+        plan = {}
+    return plan
+
+
+def _resolve_column(df: pd.DataFrame, name: str) -> Optional[str]:
+    if name in df.columns:
+        return name
+    # case-insensitive fallback
+    lowered = {str(c).lower(): str(c) for c in df.columns}
+    return lowered.get(str(name).lower())
+
+
+def _as_number(value: Any) -> Any:
+    try:
+        if isinstance(value, (int, float)):
+            return value
+        text = str(value).strip()
+        if text.lower() in {"true", "false"}:
+            return text.lower() == "true"
+        if text == "":
+            return value
+        return float(text) if ("." in text or "e" in text.lower()) else int(text)
+    except Exception:
+        return value
+
+
+def _execute_analysis_plan(df: pd.DataFrame, plan: Dict[str, Any]) -> Tuple[pd.DataFrame, List[str]]:
+    working = df.copy()
+    logs: List[str] = []
+
+    def log(msg: str) -> None:
+        logs.append(msg)
+
+    steps: List[Dict[str, Any]] = list(plan.get("steps", []))
+    for step in steps:
+        op = str(step.get("op", "")).lower()
+        if op == "filter":
+            conditions = step.get("conditions") or []
+            mask = pd.Series(True, index=working.index)
+            for cond in conditions:
+                col_raw = cond.get("column")
+                optr = str(cond.get("operator", "==")).lower()
+                val = cond.get("value")
+                values = cond.get("values")
+                ci = bool(cond.get("case_insensitive", True))
+                col = _resolve_column(working, str(col_raw))
+                if not col or col not in working.columns:
+                    continue
+                series = working[col]
+                if optr in {"==", "!=", ">", ">=", "<", "<="}:
+                    right = _as_number(val)
+                    try:
+                        expr_mask = getattr(series, "__{}__".format(
+                            {"==": "eq", "!=": "ne", ">": "gt", ">=": "ge", "<": "lt", "<=": "le"}[optr]
+                        ))(right)
+                    except Exception:
+                        expr_mask = series.astype(str).str.lower().eq(str(val).lower()) if ci else series.astype(str).eq(str(val))
+                        if optr == "!=":
+                            expr_mask = ~expr_mask
+                elif optr in {"contains"}:
+                    expr_mask = series.astype(str).str.contains(str(val), case=not ci, na=False)
+                elif optr in {"in", "not_in"}:
+                    vals = [ _as_number(v) for v in (values if isinstance(values, list) else [val]) ]
+                    expr_mask = series.isin(vals)
+                    if optr == "not_in":
+                        expr_mask = ~expr_mask
+                elif optr in {"between"}:
+                    arr = values if isinstance(values, list) else [None, None]
+                    left, right = (_as_number(arr[0]), _as_number(arr[1]))
+                    expr_mask = series.between(left, right, inclusive="both")
+                else:
+                    continue
+                mask &= expr_mask.fillna(False)
+            working = working[mask]
+            log(f"filter rows -> {len(working)} rows")
+
+        elif op == "select":
+            columns = [c for c in (step.get("columns") or []) if _resolve_column(working, str(c))]
+            resolved = [_resolve_column(working, str(c)) for c in columns]
+            resolved = [c for c in resolved if c is not None]
+            if resolved:
+                working = working.loc[:, resolved]  # type: ignore[index]
+                log(f"select columns -> {resolved}")
+
+        elif op == "compute":
+            new_col = str(step.get("new_column") or "new")
+            operation = str(step.get("operation") or "add").lower()
+            left_spec = step.get("left") or {}
+            right_spec = step.get("right") or {}
+            left_col = _resolve_column(working, str(left_spec.get("column"))) if left_spec.get("column") else None
+            right_col = _resolve_column(working, str(right_spec.get("column"))) if right_spec.get("column") else None
+            left_val = working[left_col] if left_col else _as_number(left_spec.get("value"))
+            right_val = working[right_col] if right_col else _as_number(right_spec.get("value"))
+            try:
+                if operation == "add":
+                    working[new_col] = left_val + right_val  # type: ignore[operator]
+                elif operation == "subtract":
+                    working[new_col] = left_val - right_val  # type: ignore[operator]
+                elif operation == "multiply":
+                    working[new_col] = left_val * right_val  # type: ignore[operator]
+                elif operation == "divide":
+                    working[new_col] = left_val / right_val  # type: ignore[operator]
+                log(f"compute {new_col} = {operation}(...)")
+            except Exception:
+                pass
+
+        elif op == "groupby_agg":
+            by = [c for c in (step.get("by") or []) if _resolve_column(working, str(c))]
+            by_resolved = [_resolve_column(working, str(c)) for c in by]
+            by_resolved = [c for c in by_resolved if c is not None]
+            aggs_conf = step.get("aggregations") or []
+            agg_map: Dict[str, List[str]] = {}
+            for a in aggs_conf:
+                col = _resolve_column(working, str(a.get("column")))
+                func = str(a.get("agg", "sum")).lower()
+                if col and func in {"sum", "mean", "count", "min", "max", "median"}:
+                    agg_map.setdefault(col, []).append(func)
+            if by_resolved and agg_map:
+                grouped = working.groupby(by_resolved, dropna=False).agg(agg_map)
+                # Flatten MultiIndex columns if present
+                grouped.columns = ["_".join([str(c) for c in col]).strip("_") if isinstance(col, tuple) else str(col) for col in grouped.columns.values]
+                working = grouped.reset_index()
+                log(f"groupby {by_resolved} agg {agg_map}")
+
+        elif op == "sort":
+            by = [c for c in (step.get("by") or []) if _resolve_column(working, str(c))]
+            by_resolved = [_resolve_column(working, str(c)) for c in by]
+            by_resolved = [c for c in by_resolved if c is not None]
+            ascending = step.get("ascending", False)
+            try:
+                working = working.sort_values(by=by_resolved or working.columns.tolist(), ascending=ascending)
+                log(f"sort by {by_resolved or list(working.columns)} asc={ascending}")
+            except Exception:
+                pass
+
+        elif op == "topk":
+            k = int(step.get("k", 5))
+            by = _resolve_column(working, str(step.get("by"))) if step.get("by") else None
+            try:
+                if by and pd.api.types.is_numeric_dtype(working[by]):
+                    working = working.nlargest(k, by)
+                else:
+                    working = working.head(k)
+                log(f"topk {k} by {by or 'head'}")
+            except Exception:
+                working = working.head(k)
+                log(f"topk {k} (fallback head)")
+
+        elif op == "rename":
+            mapping = step.get("mapping") or {}
+            safe_map = { (k if k in working.columns else _resolve_column(working, str(k))): str(v) for k, v in mapping.items() }
+            safe_map = { k: v for k, v in safe_map.items() if k }
+            if safe_map:
+                working = working.rename(columns=safe_map)
+                log(f"rename columns {safe_map}")
+
+        elif op == "pivot":
+            index = step.get("index")
+            values = step.get("values")
+            columns = step.get("columns")
+            aggfunc = step.get("aggfunc", "sum")
+            fill_value = step.get("fill_value")
+            try:
+                pivoted = pd.pivot_table(
+                    working,
+                    index=index,
+                    columns=columns,
+                    values=values,
+                    aggfunc=aggfunc,
+                    fill_value=fill_value,
+                )
+                if isinstance(pivoted.columns, pd.MultiIndex):
+                    pivoted.columns = ["_".join([str(c) for c in col]).strip("_") for col in pivoted.columns]
+                working = pivoted.reset_index()
+                log("pivot table")
+            except Exception:
+                pass
+
+        elif op == "limit":
+            n = int(step.get("n", 10))
+            working = working.head(n)
+            log(f"limit {n}")
+
+        else:
+            # Unknown op: skip
+            continue
+
+    # Final compaction to avoid extremely wide outputs
+    if len(working.columns) > 50:
+        working = working.iloc[:, :50]
+        log("trim columns to first 50 for display")
+
+    return working, logs
+
+
+def _summarize_result(llm: ChatOpenAI, df: pd.DataFrame, query: str, logs: List[str]) -> str:
+    # Create a compact CSV preview for the model
+    limited = df.head(30)
+    csv_preview = limited.to_csv(index=False)
+    prompt = (
+        "You are a precise data analyst. Write a concise 2-4 sentence answer\n"
+        "to the user's question based on the provided result table.\n"
+        "Focus on key numbers, rankings, and trends.\n"
+        f"Question: {query}\n"
+        f"Applied steps: {json.dumps(logs)}\n"
+        "Result CSV (first 30 rows):\n"
+        f"{csv_preview[:6000]}\n"
+    )
+    try:
+        resp = llm.invoke(prompt)
+        content = getattr(resp, "content", "")
+        return str(content).strip() or "Analysis complete. See the results table below."
+    except Exception:
+        try:
+            return limited.describe(include='all').to_string()[:1200]
+        except Exception:
+            return "Analysis complete. See the results table below."
 
 
 def _choose_chart_plan(llm: ChatOpenAI, df: pd.DataFrame, query: str) -> Dict[str, Any]:
@@ -490,6 +803,22 @@ if run:
                 st.caption("Chart JSON (failed to render):")
                 st.code(json.dumps(chart_spec, indent=2))
 
+        # Show tabular results if present
+        analysis_table = result.get("analysis_table")
+        if isinstance(analysis_table, dict) and analysis_table.get("rows"):
+            try:
+                table_df = pd.DataFrame(analysis_table.get("rows", []))
+                cols = analysis_table.get("columns")
+                if isinstance(cols, list) and cols:
+                    ordered = [c for c in cols if c in table_df.columns]
+                    if ordered:
+                        table_df = table_df.loc[:, ordered]
+                st.markdown("**Results table**")
+                st.dataframe(table_df, use_container_width=True)
+            except Exception:
+                st.caption("Results table (raw):")
+                st.code(json.dumps(analysis_table)[:8000])
+
         # Optional: show retrieved snippets
         retrieved_text = result.get("retrieved_text")
         if retrieved_text:
@@ -499,7 +828,4 @@ if run:
     except Exception as exc:
         st.error(f"Run failed: {exc}")
 
-# Footer note
-st.caption(
-    "Tip: Set your OPENAI_API_KEY in Streamlit Secrets for Streamlit Community Cloud deployment."
-)
+# Footer note removed per request

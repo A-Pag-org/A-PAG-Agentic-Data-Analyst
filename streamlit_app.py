@@ -6,6 +6,11 @@ import os
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
+from requests.exceptions import (
+    RequestException,
+    ConnectionError as RequestsConnectionError,
+    HTTPError,
+)
 import streamlit as st
 
 
@@ -27,15 +32,18 @@ def _get_secret(key: str, default: Optional[str] = None) -> Optional[str]:
 
 
 def get_backend_config() -> Tuple[str, Optional[str]]:
-    backend_url = st.session_state.get(
-        "backend_url",
-        _get_secret("BACKEND_URL", "http://localhost:8000"),
+    # Prefer session state, then env/secrets in this order: BACKEND_URL, NEXT_PUBLIC_BACKEND_URL
+    detected_backend = (
+        st.session_state.get("backend_url")
+        or _get_secret("BACKEND_URL", None)
+        or _get_secret("NEXT_PUBLIC_BACKEND_URL", None)
+        or "http://localhost:8000"
     )
     auth_token = st.session_state.get(
         "auth_bearer_token",
         _get_secret("AUTH_BEARER_TOKEN", None),
     )
-    return backend_url.rstrip("/"), auth_token
+    return str(detected_backend).rstrip("/"), auth_token
 
 
 # -------------------------
@@ -168,6 +176,16 @@ with upload_tab:
             st.warning("Please select a file first.")
         else:
             try:
+                # Quick reachability check before attempting upload
+                try:
+                    client.get("/api/v1/health")
+                except Exception as health_exc:
+                    st.error(
+                        f"Backend not reachable at '{backend_url}'. "
+                        f"Update 'Backend URL' in the sidebar or start the backend. Details: {health_exc}"
+                    )
+                    raise
+
                 file_bytes = uploaded.getvalue()
                 content_type = uploaded.type or "application/octet-stream"
                 files = {
@@ -181,6 +199,27 @@ with upload_tab:
                 result = client.post_multipart("/api/v1/ingest/upload", files=files, data=data)
                 st.success("Upload succeeded.")
                 st.json(result)
+            except RequestsConnectionError as exc:
+                st.error(
+                    f"Upload failed: cannot connect to backend at '{backend_url}'. "
+                    f"Ensure the backend is running and the URL is correct. Details: {exc}"
+                )
+            except HTTPError as exc:
+                status = getattr(exc.response, "status_code", "")
+                detail: Any = None
+                if getattr(exc, "response", None) is not None:
+                    try:
+                        detail = exc.response.json()
+                    except Exception:
+                        try:
+                            detail = exc.response.text
+                        except Exception:
+                            detail = None
+                st.error(
+                    f"Upload failed: HTTP {status} {detail if detail else ''}".strip()
+                )
+            except RequestException as exc:
+                st.error(f"Upload failed due to network error: {exc}")
             except Exception as exc:
                 st.error(f"Upload failed: {exc}")
 

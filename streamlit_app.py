@@ -36,6 +36,7 @@ def normalize_base_url(raw_value: Optional[str]) -> str:
 
     - Adds https:// when missing (http:// for localhost/127.0.0.1/0.0.0.0 or when a port is present)
     - Falls back to http://localhost:8000 when empty
+    - Removes trailing API suffixes like /api or /api/v1 to avoid double-prefixing
     - Strips surrounding whitespace and trailing slashes
     """
     value = (raw_value or "").strip()
@@ -50,7 +51,14 @@ def normalize_base_url(raw_value: Optional[str]) -> str:
         has_port = ":" in value and not value.startswith("http")
         default_scheme = "http://" if (is_local_like or has_port) else "https://"
         normalized = f"{default_scheme}{value}"
-    return normalized.rstrip("/")
+
+    # Remove trailing API suffixes to prevent /api duplication
+    trimmed = normalized.rstrip("/")
+    for suffix in ("/api/v1", "/api"):
+        if trimmed.endswith(suffix):
+            trimmed = trimmed[: -len(suffix)]
+            break
+    return trimmed
 
 
 def get_backend_config() -> Tuple[str, Optional[str]]:
@@ -165,7 +173,12 @@ st.title("AI Data Analytics Platform — Streamlit UI")
 with st.sidebar:
     st.header("Backend Settings")
     default_backend, default_token = get_backend_config()
-    backend_url = st.text_input("Backend URL", value=default_backend, placeholder="https://your-backend.example.com")
+    backend_url = st.text_input(
+        "Backend URL",
+        value=default_backend,
+        placeholder="https://your-backend.example.com",
+        help="Enter the origin only (e.g. https://api.example.com). Do NOT include /api or /api/v1.",
+    )
     auth_bearer_token = st.text_input("Auth Bearer Token", value=default_token or "", type="password")
     user_id = st.text_input("User ID", value=st.session_state.get("user_id", "streamlit_user"))
 

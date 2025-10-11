@@ -940,6 +940,15 @@ def build_graph() -> Any:
 # -------------------------
 
 st.set_page_config(page_title=APP_NAME, layout="wide")
+
+# Automatically retrieve and set the OpenAI API key from Streamlit secrets
+try:
+    ensure_openai_key()
+except RuntimeError as e:
+    st.error(str(e))
+    st.info("Please add your OPENAI_API_KEY to Streamlit secrets or as an environment variable.")
+    st.stop()
+
 st.title(APP_NAME)
 
 with st.sidebar:
@@ -1004,7 +1013,6 @@ with col_right:
 if run:
     try:
         # Pre-flight checks
-        ensure_openai_key()
         if not data_path.exists():
             st.warning("No dataset found. Please upload a file first.")
         # Build and run graph

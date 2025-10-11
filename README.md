@@ -18,13 +18,20 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-Set your key:
+Set your OpenAI API key (choose one method):
 
+**Option 1: Streamlit Secrets (recommended)**
+```bash
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+# Edit .streamlit/secrets.toml and add your actual API key
+```
+
+**Option 2: Environment Variable**
 ```bash
 export OPENAI_API_KEY=sk-...
 ```
 
-Alternatively, in Streamlit Community Cloud, set it under Secrets → `OPENAI_API_KEY`.
+The app will automatically retrieve your API key from Streamlit secrets or environment variables on startup.
 
 ## What it does
 

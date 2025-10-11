@@ -941,6 +941,46 @@ def build_graph() -> Any:
 
 st.set_page_config(page_title=APP_NAME, layout="wide")
 
+# Inject custom JavaScript to suppress known Streamlit console warnings
+# These warnings are from Streamlit's internal implementation and don't affect functionality
+import streamlit.components.v1 as components
+
+components.html("""
+<script>
+// Suppress specific console warnings that come from Streamlit's internal JavaScript
+(function() {
+    const originalWarn = console.warn;
+    const originalError = console.error;
+    
+    const suppressedPatterns = [
+        /Unrecognized feature.*ambient-light-sensor/i,
+        /Unrecognized feature.*battery/i,
+        /Unrecognized feature.*document-domain/i,
+        /Unrecognized feature.*layout-animations/i,
+        /Unrecognized feature.*legacy-image-formats/i,
+        /Unrecognized feature.*oversized-images/i,
+        /Unrecognized feature.*vr/i,
+        /Unrecognized feature.*wake-lock/i,
+        /allow-scripts.*allow-same-origin.*sandbox/i
+    ];
+    
+    console.warn = function(...args) {
+        const message = args.join(' ');
+        if (!suppressedPatterns.some(pattern => pattern.test(message))) {
+            originalWarn.apply(console, args);
+        }
+    };
+    
+    console.error = function(...args) {
+        const message = args.join(' ');
+        if (!suppressedPatterns.some(pattern => pattern.test(message))) {
+            originalError.apply(console, args);
+        }
+    };
+})();
+</script>
+""", height=0)
+
 # Automatically retrieve and set the OpenAI API key from Streamlit secrets
 try:
     ensure_openai_key()

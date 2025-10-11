@@ -1,0 +1,38 @@
+# Streamlit Configuration File
+# This configuration addresses browser warnings related to permissions policy and iframe sandboxing
+
+[server]
+# Security settings
+enableCORS = false
+enableXsrfProtection = true
+enableStaticServing = true
+
+# Reduce potential for iframe-related warnings
+# Note: Streamlit uses iframes internally for components
+headless = false
+
+[browser]
+# Browser configuration to minimize warnings
+gatherUsageStats = false
+serverAddress = "localhost"
+
+[client]
+# Client settings
+showErrorDetails = true
+toolbarMode = "auto"
+
+[runner]
+# Runner configuration
+fastReruns = true
+enforceSerializableSessionState = false
+
+# Note: The warnings you're seeing are from Streamlit's internal JavaScript
+# and are related to deprecated Permissions Policy features:
+# - ambient-light-sensor, battery, document-domain, layout-animations,
+#   legacy-image-formats, oversized-images, vr, wake-lock
+# 
+# These are browser warnings and don't affect functionality.
+# They will be addressed in future Streamlit updates.
+# 
+# The iframe sandbox warning is also from Streamlit's internal components.
+# It's a security notice but is intentional for Streamlit's component system.

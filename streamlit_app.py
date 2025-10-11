@@ -981,15 +981,21 @@ components.html("""
 </script>
 """, height=0)
 
-# Automatically retrieve and set the OpenAI API key from Streamlit secrets
+st.title(APP_NAME)
+
+# Check for API key but don't stop the app - show warning instead
+_api_key_available = False
 try:
     ensure_openai_key()
+    _api_key_available = True
 except RuntimeError as e:
-    st.error(str(e))
-    st.info("Please add your OPENAI_API_KEY to Streamlit secrets or as an environment variable.")
-    st.stop()
-
-st.title(APP_NAME)
+    st.warning("⚠️ OpenAI API key not configured")
+    st.info(
+        "To use this app, please configure your OPENAI_API_KEY:\n"
+        "- **On Streamlit Cloud**: Add it in the app settings under 'Secrets'\n"
+        "- **Locally**: Create `.streamlit/secrets.toml` with `OPENAI_API_KEY = \"sk-...\"`\n"
+        "- **Or**: Set the environment variable `OPENAI_API_KEY`"
+    )
 
 with st.sidebar:
     st.header("Settings")
@@ -1053,8 +1059,12 @@ with col_right:
 if run:
     try:
         # Pre-flight checks
+        if not _api_key_available:
+            st.error("Cannot run analysis: OpenAI API key not configured. Please add your API key to continue.")
+            st.stop()
         if not data_path.exists():
             st.warning("No dataset found. Please upload a file first.")
+            st.stop()
         # Build and run graph
         app = build_graph()
         initial_state: AppState = {

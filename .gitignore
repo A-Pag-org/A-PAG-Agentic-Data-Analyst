@@ -20,3 +20,10 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 chroma_index/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# App data directories
+data/
+stores/
